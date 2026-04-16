@@ -50,18 +50,115 @@ export default function Posts() {
   const { data: posts, isLoading } = useListPosts(queryParams);
   const bulkCreate = useBulkCreatePosts();
 
+  // Normalize a single raw Reddit post object into our schema
+  const normalizeRedditPost = (p: Record<string, unknown>) => {
+    // Already in our format
+    if (typeof p.content === "string") return p;
+
+    const selftext = (p.selftext ?? p.body ?? "") as string;
+    const title = (p.title ?? "") as string;
+    const author = (p.author ?? p.author_fullname ?? "") as string;
+    const subreddit = (p.subreddit ?? p.subreddit_name_prefixed?.toString().replace(/^r\//, "") ?? "") as string;
+    const permalink = p.permalink as string | undefined;
+    const rawUrl = p.url as string | undefined;
+    // Prefer permalink-derived URL (always a post link); fall back to raw URL only if it looks like a post
+    const url = permalink
+      ? `https://www.reddit.com${permalink}`
+      : rawUrl ?? "";
+    const createdUtc = p.created_utc as number | undefined;
+
+    const contentText = selftext.toString().trim() || title.toString().trim();
+
+    return {
+      platform: "reddit",
+      subreddit: subreddit.toString(),
+      author: author.toString(),
+      title: title.toString(),
+      content: contentText,
+      url,
+      ...(createdUtc ? { postedAt: new Date(createdUtc * 1000).toISOString() } : {}),
+      _empty: !contentText,
+    };
+  };
+
+  // Extract posts from any Reddit JSON shape
+  const extractPosts = (raw: unknown): Record<string, unknown>[] => {
+    if (Array.isArray(raw)) {
+      // Could be array of Reddit post objects or array of Listing responses
+      return raw.flatMap((item) => {
+        if (item && typeof item === "object") {
+          const obj = item as Record<string, unknown>;
+          // Reddit Listing wrapper
+          if (obj.kind === "Listing" && obj.data) {
+            const listing = obj.data as Record<string, unknown>;
+            const children = listing.children as { kind: string; data: Record<string, unknown> }[] ?? [];
+            return children.filter(c => c.kind === "t3").map(c => normalizeRedditPost(c.data));
+          }
+          // Nested { kind: "t3", data: {...} }
+          if (obj.kind === "t3" && obj.data) {
+            return [normalizeRedditPost(obj.data as Record<string, unknown>)];
+          }
+          // Plain post object (may have selftext or content)
+          return [normalizeRedditPost(obj)];
+        }
+        return [];
+      });
+    }
+    if (raw && typeof raw === "object") {
+      const obj = raw as Record<string, unknown>;
+      // Single Reddit Listing: { kind: "Listing", data: { children: [...] } }
+      if (obj.kind === "Listing" && obj.data) {
+        const listing = obj.data as Record<string, unknown>;
+        const children = (listing.children as { kind: string; data: Record<string, unknown> }[]) ?? [];
+        return children.filter(c => c.kind === "t3").map(c => normalizeRedditPost(c.data));
+      }
+      // Reddit .json response: { data: { children: [...] } }
+      if (obj.data && typeof obj.data === "object") {
+        const inner = obj.data as Record<string, unknown>;
+        if (Array.isArray(inner.children)) {
+          return (inner.children as { kind: string; data: Record<string, unknown> }[])
+            .filter(c => c.kind === "t3")
+            .map(c => normalizeRedditPost(c.data));
+        }
+      }
+      // Single post object
+      return [normalizeRedditPost(obj)];
+    }
+    return [];
+  };
+
   const handleImport = () => {
     try {
-      const data = JSON.parse(importJson);
-      const postsArray = Array.isArray(data) ? data : [data];
-      
+      const raw = JSON.parse(importJson);
+      const postsArray = extractPosts(raw);
+
+      if (postsArray.length === 0) {
+        toast({ variant: "destructive", title: "No posts found", description: "Could not find any posts in the JSON. Check the format." });
+        return;
+      }
+
+      // Filter out link/image posts with no text content
+      const emptyCount = postsArray.filter(p => p._empty).length;
+      const validPosts = postsArray
+        .filter(p => !p._empty)
+        .map(({ _empty, ...rest }) => rest);
+
+      if (validPosts.length === 0) {
+        toast({ variant: "destructive", title: "No text posts found", description: `All ${emptyCount} posts were link/image posts with no body text.` });
+        return;
+      }
+
       bulkCreate.mutate({
-        data: { posts: postsArray }
+        data: { posts: validPosts }
       }, {
         onSuccess: (res) => {
+          const skippedMsg = [
+            res.skipped > 0 ? `${res.skipped} duplicate${res.skipped > 1 ? "s" : ""} skipped` : null,
+            emptyCount > 0 ? `${emptyCount} link/image posts skipped` : null,
+          ].filter(Boolean).join(", ");
           toast({
             title: "Import complete",
-            description: `Imported ${res.imported} posts. Skipped ${res.skipped} duplicates.`,
+            description: `Imported ${res.imported} posts.${skippedMsg ? ` (${skippedMsg})` : ""}`,
           });
           setIsImportOpen(false);
           setImportJson("");
@@ -272,25 +369,22 @@ export default function Posts() {
               <DialogHeader>
                 <DialogTitle>Import Posts JSON</DialogTitle>
                 <DialogDescription>
-                  Paste an array of post objects from your Reddit scraper.
+                  Paste JSON from Reddit. Raw Reddit API format is auto-detected and converted — no reformatting needed.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
-                <div className="rounded-md bg-muted p-3 font-mono text-[10px] text-muted-foreground">
-                  {`[
-  {
-    "platform": "reddit",
-    "subreddit": "ChatGPT",
-    "author": "user123",
-    "title": "It feels like it understands me",
-    "content": "...",
-    "url": "https://..."
-  }
-]`}
+                <div className="rounded-md bg-muted p-3 text-[11px] text-muted-foreground space-y-1">
+                  <p className="font-medium text-foreground">Accepted formats:</p>
+                  <ul className="list-disc pl-4 space-y-0.5">
+                    <li>Raw Reddit <code className="bg-muted-foreground/20 px-1 rounded">.json</code> URL response <span className="opacity-70">(reddit.com/r/…/.json)</span></li>
+                    <li>PRAW / pushshift array with <code className="bg-muted-foreground/20 px-1 rounded">selftext</code> field</li>
+                    <li>Pre-formatted array with <code className="bg-muted-foreground/20 px-1 rounded">content</code> field</li>
+                  </ul>
+                  <p className="opacity-60 text-[10px] pt-1">Link/image posts with no body text are skipped automatically.</p>
                 </div>
                 <Textarea
-                  placeholder="Paste JSON here..."
-                  className="font-mono h-[300px]"
+                  placeholder="Paste JSON here…"
+                  className="font-mono h-[280px]"
                   value={importJson}
                   onChange={(e) => setImportJson(e.target.value)}
                 />
