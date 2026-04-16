@@ -3,13 +3,21 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: AI Discourse Annotation Platform API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: posts
+    description: Social media posts
+  - name: annotations
+    description: Post annotations
+  - name: coders
+    description: Coder/annotator management
+  - name: stats
+    description: Statistics and summaries
 paths:
   /healthz:
     get:
@@ -24,6 +32,346 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /posts:
+    get:
+      operationId: listPosts
+      tags: [posts]
+      summary: List all posts
+      parameters:
+        - name: subreddit
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: annotated
+          in: query
+          schema:
+            type: ["string", "null"]
+          description: "filter: 'yes', 'no', or omit for all"
+        - name: limit
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: offset
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: List of posts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Post"
+    post:
+      operationId: createPost
+      tags: [posts]
+      summary: Add a new post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePostBody"
+      responses:
+        "201":
+          description: Created post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+
+  /posts/bulk:
+    post:
+      operationId: bulkCreatePosts
+      tags: [posts]
+      summary: Import multiple posts at once
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkCreatePostsBody"
+      responses:
+        "201":
+          description: Bulk import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkImportResult"
+
+  /posts/{id}:
+    get:
+      operationId: getPost
+      tags: [posts]
+      summary: Get a single post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "404":
+          description: Not found
+    delete:
+      operationId: deletePost
+      tags: [posts]
+      summary: Delete a post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /posts/{id}/annotations:
+    get:
+      operationId: getPostAnnotations
+      tags: [annotations]
+      summary: List annotations for a post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Annotations for the post
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Annotation"
+
+  /annotations:
+    get:
+      operationId: listAnnotations
+      tags: [annotations]
+      summary: List all annotations
+      parameters:
+        - name: coderId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: postId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: List of annotations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Annotation"
+    post:
+      operationId: createAnnotation
+      tags: [annotations]
+      summary: Submit an annotation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAnnotationBody"
+      responses:
+        "201":
+          description: Created annotation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Annotation"
+
+  /annotations/{id}:
+    get:
+      operationId: getAnnotation
+      tags: [annotations]
+      summary: Get a single annotation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Annotation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Annotation"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateAnnotation
+      tags: [annotations]
+      summary: Update an annotation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAnnotationBody"
+      responses:
+        "200":
+          description: Updated annotation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Annotation"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteAnnotation
+      tags: [annotations]
+      summary: Delete an annotation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /coders:
+    get:
+      operationId: listCoders
+      tags: [coders]
+      summary: List all coders
+      responses:
+        "200":
+          description: List of coders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Coder"
+    post:
+      operationId: createCoder
+      tags: [coders]
+      summary: Create a coder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCoderBody"
+      responses:
+        "201":
+          description: Created coder
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Coder"
+
+  /coders/{id}:
+    get:
+      operationId: getCoder
+      tags: [coders]
+      summary: Get a coder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Coder
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Coder"
+        "404":
+          description: Not found
+
+  /stats/summary:
+    get:
+      operationId: getStatsSummary
+      tags: [stats]
+      summary: Get overall corpus summary statistics
+      responses:
+        "200":
+          description: Summary stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatsSummary"
+
+  /stats/by-subreddit:
+    get:
+      operationId: getStatsBySubreddit
+      tags: [stats]
+      summary: Annotation counts and distributions grouped by subreddit
+      responses:
+        "200":
+          description: Stats by subreddit
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SubredditStats"
+
+  /stats/agreement:
+    get:
+      operationId: getAgreementStats
+      tags: [stats]
+      summary: Inter-rater agreement summary for posts with multiple annotations
+      responses:
+        "200":
+          description: Agreement stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgreementStats"
+
+  /posts/next-to-annotate:
+    get:
+      operationId: getNextPostToAnnotate
+      tags: [posts]
+      summary: Get the next unannotated post for a coder
+      parameters:
+        - name: coderId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Next post to annotate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "404":
+          description: No more posts to annotate
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +382,325 @@ components:
       required:
         - status
 
+    Post:
+      type: object
+      properties:
+        id:
+          type: integer
+        externalId:
+          type: ["string", "null"]
+        platform:
+          type: string
+        subreddit:
+          type: ["string", "null"]
+        author:
+          type: ["string", "null"]
+        title:
+          type: ["string", "null"]
+        content:
+          type: string
+        url:
+          type: ["string", "null"]
+        postedAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        annotationCount:
+          type: integer
+      required:
+        - id
+        - platform
+        - content
+        - createdAt
+        - annotationCount
+
+    CreatePostBody:
+      type: object
+      properties:
+        externalId:
+          type: ["string", "null"]
+        platform:
+          type: string
+        subreddit:
+          type: ["string", "null"]
+        author:
+          type: ["string", "null"]
+        title:
+          type: ["string", "null"]
+        content:
+          type: string
+        url:
+          type: ["string", "null"]
+        postedAt:
+          type: ["string", "null"]
+      required:
+        - platform
+        - content
+
+    BulkCreatePostsBody:
+      type: object
+      properties:
+        posts:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreatePostBody"
+      required:
+        - posts
+
+    BulkImportResult:
+      type: object
+      properties:
+        imported:
+          type: integer
+        skipped:
+          type: integer
+        total:
+          type: integer
+      required:
+        - imported
+        - skipped
+        - total
+
+    Annotation:
+      type: object
+      properties:
+        id:
+          type: integer
+        postId:
+          type: integer
+        coderId:
+          type: integer
+        coderName:
+          type: ["string", "null"]
+        anthropomorphismLevel:
+          type: string
+          description: "none | mild | strong"
+        mindPerception:
+          type: string
+          description: "agency | experience | both | neither"
+        moralEvaluation:
+          type: string
+          description: "praise | blame | concern | ambivalent | none"
+        vassValues:
+          type: boolean
+        vassAutonomy:
+          type: boolean
+        vassSocialConnection:
+          type: boolean
+        vassSelfAwareEmotions:
+          type: boolean
+        uncanny:
+          type: string
+          description: "eerie | creepy | fake-human | unsettling | none"
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - postId
+        - coderId
+        - anthropomorphismLevel
+        - mindPerception
+        - moralEvaluation
+        - vassValues
+        - vassAutonomy
+        - vassSocialConnection
+        - vassSelfAwareEmotions
+        - uncanny
+        - createdAt
+        - updatedAt
+
+    CreateAnnotationBody:
+      type: object
+      properties:
+        postId:
+          type: integer
+        coderId:
+          type: integer
+        anthropomorphismLevel:
+          type: string
+        mindPerception:
+          type: string
+        moralEvaluation:
+          type: string
+        vassValues:
+          type: boolean
+        vassAutonomy:
+          type: boolean
+        vassSocialConnection:
+          type: boolean
+        vassSelfAwareEmotions:
+          type: boolean
+        uncanny:
+          type: string
+        notes:
+          type: ["string", "null"]
+      required:
+        - postId
+        - coderId
+        - anthropomorphismLevel
+        - mindPerception
+        - moralEvaluation
+        - vassValues
+        - vassAutonomy
+        - vassSocialConnection
+        - vassSelfAwareEmotions
+        - uncanny
+
+    UpdateAnnotationBody:
+      type: object
+      properties:
+        anthropomorphismLevel:
+          type: ["string", "null"]
+        mindPerception:
+          type: ["string", "null"]
+        moralEvaluation:
+          type: ["string", "null"]
+        vassValues:
+          type: ["boolean", "null"]
+        vassAutonomy:
+          type: ["boolean", "null"]
+        vassSocialConnection:
+          type: ["boolean", "null"]
+        vassSelfAwareEmotions:
+          type: ["boolean", "null"]
+        uncanny:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+
+    Coder:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: ["string", "null"]
+        role:
+          type: string
+          description: "lead | coder"
+        annotationCount:
+          type: integer
+        createdAt:
+          type: string
+      required:
+        - id
+        - name
+        - role
+        - annotationCount
+        - createdAt
+
+    CreateCoderBody:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: ["string", "null"]
+        role:
+          type: string
+      required:
+        - name
+        - role
+
+    StatsSummary:
+      type: object
+      properties:
+        totalPosts:
+          type: integer
+        annotatedPosts:
+          type: integer
+        unannotatedPosts:
+          type: integer
+        totalAnnotations:
+          type: integer
+        totalCoders:
+          type: integer
+        anthropomorphismBreakdown:
+          type: object
+          properties:
+            none:
+              type: integer
+            mild:
+              type: integer
+            strong:
+              type: integer
+          required: [none, mild, strong]
+        moralEvaluationBreakdown:
+          type: object
+          properties:
+            praise:
+              type: integer
+            blame:
+              type: integer
+            concern:
+              type: integer
+            ambivalent:
+              type: integer
+            none:
+              type: integer
+          required: [praise, blame, concern, ambivalent, none]
+        mindPerceptionBreakdown:
+          type: object
+          properties:
+            agency:
+              type: integer
+            experience:
+              type: integer
+            both:
+              type: integer
+            neither:
+              type: integer
+          required: [agency, experience, both, neither]
+      required:
+        - totalPosts
+        - annotatedPosts
+        - unannotatedPosts
+        - totalAnnotations
+        - totalCoders
+        - anthropomorphismBreakdown
+        - moralEvaluationBreakdown
+        - mindPerceptionBreakdown
+
+    SubredditStats:
+      type: object
+      properties:
+        subreddit:
+          type: ["string", "null"]
+        postCount:
+          type: integer
+        annotationCount:
+          type: integer
+        avgAnthropomorphism:
+          type: ["number", "null"]
+        topMoralEvaluation:
+          type: ["string", "null"]
+      required:
+        - subreddit
+        - postCount
+        - annotationCount
+
+    AgreementStats:
+      type: object
+      properties:
+        postsWithMultipleAnnotations:
+          type: integer
+        anthropomorphismAgreementPct:
+          type: number
+        mindPerceptionAgreementPct:
+          type: number
+        moralEvaluationAgreementPct:
+          type: number
+        uncannyAgreementPct:
+          type: number
+      required:
+        - postsWithMultipleAnnotations
+        - anthropomorphismAgreementPct
+        - mindPerceptionAgreementPct
+        - moralEvaluationAgreementPct
+        - uncannyAgreementPct
