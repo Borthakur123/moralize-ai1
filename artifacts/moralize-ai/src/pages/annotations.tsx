@@ -1,18 +1,36 @@
 import { useListAnnotations, useListCoders } from "@workspace/api-client-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState } from "react";
 import { format } from "date-fns";
-import { Loader2, Filter } from "lucide-react";
+import { Loader2, Filter, Download } from "lucide-react";
 
 export default function Annotations() {
   const [coderIdStr, setCoderIdStr] = useState<string>("all");
+  const [downloading, setDownloading] = useState(false);
   
   const queryParams = coderIdStr !== "all" ? { coderId: parseInt(coderIdStr) } : undefined;
   
   const { data: annotations, isLoading } = useListAnnotations(queryParams);
   const { data: coders } = useListCoders();
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      const res = await fetch("/api/annotations/export");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `moralize-ai-annotations-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6">
@@ -21,6 +39,10 @@ export default function Annotations() {
           <h1 className="text-3xl font-bold tracking-tight">Annotations</h1>
           <p className="text-muted-foreground mt-1">Review completed coding assignments across the corpus.</p>
         </div>
+        <Button onClick={handleDownload} disabled={downloading} variant="outline" className="gap-2 shrink-0">
+          {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+          Download CSV
+        </Button>
       </div>
 
       <div className="flex items-center gap-4 bg-card p-4 rounded-lg border shadow-sm">

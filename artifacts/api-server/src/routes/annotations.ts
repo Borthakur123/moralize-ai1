@@ -58,6 +58,66 @@ router.get("/posts/:id/annotations", async (req, res): Promise<void> => {
   res.json(annotations);
 });
 
+router.get("/annotations/export", async (req, res): Promise<void> => {
+  const rows = await db
+    .select({
+      annotation_id: annotationsTable.id,
+      post_id: annotationsTable.postId,
+      post_subreddit: postsTable.subreddit,
+      post_platform: postsTable.platform,
+      post_author: postsTable.author,
+      post_title: postsTable.title,
+      post_content: postsTable.content,
+      post_url: postsTable.url,
+      post_posted_at: postsTable.postedAt,
+      coder_id: annotationsTable.coderId,
+      coder_name: codersTable.name,
+      anthropomorphism_level: annotationsTable.anthropomorphismLevel,
+      mind_perception: annotationsTable.mindPerception,
+      moral_evaluation: annotationsTable.moralEvaluation,
+      vass_values: annotationsTable.vassValues,
+      vass_autonomy: annotationsTable.vassAutonomy,
+      vass_social_connection: annotationsTable.vassSocialConnection,
+      vass_self_aware_emotions: annotationsTable.vassSelfAwareEmotions,
+      uncanny: annotationsTable.uncanny,
+      notes: annotationsTable.notes,
+      annotated_at: annotationsTable.createdAt,
+    })
+    .from(annotationsTable)
+    .leftJoin(postsTable, eq(annotationsTable.postId, postsTable.id))
+    .leftJoin(codersTable, eq(annotationsTable.coderId, codersTable.id))
+    .orderBy(annotationsTable.id);
+
+  const headers = [
+    "annotation_id", "post_id", "post_subreddit", "post_platform", "post_author",
+    "post_title", "post_content", "post_url", "post_posted_at",
+    "coder_id", "coder_name",
+    "anthropomorphism_level", "mind_perception", "moral_evaluation",
+    "vass_values", "vass_autonomy", "vass_social_connection", "vass_self_aware_emotions",
+    "uncanny", "notes", "annotated_at"
+  ];
+
+  const escape = (v: unknown): string => {
+    if (v == null) return "";
+    const s = String(v);
+    if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  };
+
+  const lines = [
+    headers.join(","),
+    ...rows.map((row) =>
+      headers.map((h) => escape((row as Record<string, unknown>)[h])).join(",")
+    ),
+  ];
+
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader("Content-Disposition", `attachment; filename="moralize-ai-annotations-${new Date().toISOString().slice(0, 10)}.csv"`);
+  res.send(lines.join("\n"));
+});
+
 router.get("/annotations", async (req, res): Promise<void> => {
   const parsed = ListAnnotationsQueryParams.safeParse(req.query);
   if (!parsed.success) {
