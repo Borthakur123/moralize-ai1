@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useListPosts, useBulkCreatePosts, getListPostsQueryKey, getGetStatsSummaryQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -9,15 +9,36 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Upload, Filter, Search } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Loader2, Plus, Upload, Filter, Search, BrainCircuit, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+type AiStatus = "idle" | "running" | "done" | "error";
+
+interface AiProgressEvent {
+  type: "start" | "progress" | "done" | "fatal";
+  total?: number;
+  completed?: number;
+  pct?: number;
+  annotated?: number;
+  failed?: number;
+  message?: string;
+  coderId?: number;
+}
 
 export default function Posts() {
   const [subreddit, setSubreddit] = useState<string>("all");
   const [annotated, setAnnotated] = useState<string>("all");
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [importJson, setImportJson] = useState("");
-  
+
+  const [isAiOpen, setIsAiOpen] = useState(false);
+  const [aiStatus, setAiStatus] = useState<AiStatus>("idle");
+  const [aiTotal, setAiTotal] = useState(0);
+  const [aiCompleted, setAiCompleted] = useState(0);
+  const [aiMessage, setAiMessage] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -64,6 +85,81 @@ export default function Posts() {
     }
   };
 
+  const runAiAnnotation = async () => {
+    setAiStatus("running");
+    setAiCompleted(0);
+    setAiTotal(0);
+    setAiMessage(null);
+
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+
+    try {
+      const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const resp = await fetch(`${base}/api/annotations/auto-annotate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+        signal: ctrl.signal,
+      });
+
+      if (!resp.ok) throw new Error(`Server error ${resp.status}`);
+
+      const reader = resp.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() ?? "";
+
+        for (const part of parts) {
+          const line = part.trim();
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const event = JSON.parse(line.slice(6)) as AiProgressEvent;
+            if (event.type === "start") {
+              setAiTotal(event.total ?? 0);
+            } else if (event.type === "progress") {
+              setAiCompleted(event.completed ?? 0);
+              setAiTotal(event.total ?? aiTotal);
+            } else if (event.type === "done") {
+              setAiStatus("done");
+              const msg = event.annotated === 0
+                ? (event.message ?? "All posts already annotated.")
+                : `Annotated ${event.annotated} of ${event.total} posts${event.failed ? ` (${event.failed} failed)` : ""}.`;
+              setAiMessage(msg);
+              queryClient.invalidateQueries({ queryKey: getListPostsQueryKey() });
+              queryClient.invalidateQueries({ queryKey: getGetStatsSummaryQueryKey() });
+            } else if (event.type === "fatal") {
+              setAiStatus("error");
+              setAiMessage(event.message ?? "Unknown error.");
+            }
+          } catch {
+            // skip malformed event
+          }
+        }
+      }
+    } catch (err: unknown) {
+      if ((err as Error)?.name !== "AbortError") {
+        setAiStatus("error");
+        setAiMessage(String(err));
+      }
+    }
+  };
+
+  const cancelAiAnnotation = () => {
+    abortRef.current?.abort();
+    setAiStatus("idle");
+    setAiMessage(null);
+  };
+
+  const pct = aiTotal > 0 ? Math.round((aiCompleted / aiTotal) * 100) : 0;
+
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -71,7 +167,100 @@ export default function Posts() {
           <h1 className="text-3xl font-bold tracking-tight">Post Corpus</h1>
           <p className="text-muted-foreground mt-1">Manage the dataset of Reddit posts for annotation.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          {/* AI Auto-Annotate */}
+          <Dialog open={isAiOpen} onOpenChange={(open) => {
+            if (!open && aiStatus === "running") return;
+            setIsAiOpen(open);
+            if (!open) { setAiStatus("idle"); setAiMessage(null); }
+          }}>
+            <DialogTrigger asChild>
+              <Button className="gap-2 bg-violet-600 hover:bg-violet-700 text-white">
+                <BrainCircuit className="h-4 w-4" />
+                AI Auto-Annotate
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[480px]">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <BrainCircuit className="h-5 w-5 text-violet-500" />
+                  AI Auto-Annotate
+                </DialogTitle>
+                <DialogDescription>
+                  GPT will read each unannotated post and code all six dimensions automatically.
+                  Results are saved under an <strong>AI Annotator</strong> coder so you can compare
+                  AI vs. human coding and run agreement analysis.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="py-4 space-y-5">
+                {aiStatus === "idle" && (
+                  <div className="rounded-lg border bg-muted/40 p-4 space-y-3 text-sm text-muted-foreground">
+                    <p>The model will annotate:</p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Anthropomorphism Level (none / mild / strong)</li>
+                      <li>Mind Perception (agency / experience / both / neither)</li>
+                      <li>Moral Evaluation (praise / blame / concern / ambivalent / none)</li>
+                      <li>VASS Cues (values, autonomy, social connection, self-aware emotions)</li>
+                      <li>Uncanny Marker (eerie / creepy / fake-human / unsettling / none)</li>
+                    </ul>
+                    <p className="text-xs pt-1">Only unannotated posts will be processed. Previously annotated posts are skipped.</p>
+                  </div>
+                )}
+
+                {aiStatus === "running" && (
+                  <div className="space-y-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Annotating…
+                      </span>
+                      <span className="font-medium">{aiCompleted} / {aiTotal}</span>
+                    </div>
+                    <Progress value={pct} className="h-2" />
+                    <p className="text-xs text-center text-muted-foreground">{pct}% complete</p>
+                  </div>
+                )}
+
+                {aiStatus === "done" && (
+                  <div className="flex flex-col items-center gap-3 py-2">
+                    <CheckCircle2 className="h-10 w-10 text-emerald-500" />
+                    <p className="text-sm font-medium text-center">{aiMessage}</p>
+                    <Progress value={100} className="h-2 w-full" />
+                  </div>
+                )}
+
+                {aiStatus === "error" && (
+                  <div className="flex flex-col items-center gap-3 py-2">
+                    <XCircle className="h-10 w-10 text-red-500" />
+                    <p className="text-sm text-center text-red-600">{aiMessage}</p>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-2">
+                  {aiStatus === "idle" && (
+                    <>
+                      <Button variant="outline" onClick={() => setIsAiOpen(false)}>Cancel</Button>
+                      <Button className="bg-violet-600 hover:bg-violet-700 text-white gap-2" onClick={runAiAnnotation}>
+                        <BrainCircuit className="h-4 w-4" />
+                        Run AI Annotation
+                      </Button>
+                    </>
+                  )}
+                  {aiStatus === "running" && (
+                    <Button variant="destructive" onClick={cancelAiAnnotation}>Stop</Button>
+                  )}
+                  {(aiStatus === "done" || aiStatus === "error") && (
+                    <Button onClick={() => { setIsAiOpen(false); setAiStatus("idle"); setAiMessage(null); }}>
+                      Close
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Bulk Import */}
           <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" className="gap-2">

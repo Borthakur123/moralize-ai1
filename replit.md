@@ -24,9 +24,11 @@ A research data collection and annotation platform for the "Moralizing Machines 
 ### Key Features
 - Corpus management: add posts individually or bulk import via JSON
 - Annotation workspace: 6-dimension coding form with auto-advance to next post
-- Coders: manage annotator profiles
+- **AI Auto-Annotate**: one-click GPT batch annotation with live SSE progress (Posts page)
+- Coders: manage annotator profiles (includes auto-created "AI Annotator (GPT)" coder)
 - Dashboard: real-time corpus statistics with Recharts visualizations
 - Agreement: inter-rater reliability statistics across coding dimensions
+- CSV export: download all annotations joined with post metadata
 
 ### Coding Dimensions (per proposal)
 1. **Anthropomorphism Level**: none / mild / strong
@@ -48,6 +50,15 @@ A research data collection and annotation platform for the "Moralizing Machines 
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
+
+## AI Integration
+
+Uses Replit AI Integrations for OpenAI access (no user API key needed, billed to Replit credits).
+- Package: `@workspace/integrations-openai-ai-server` (lib/integrations-openai-ai-server)
+- Model: `gpt-5-mini` with `response_format: { type: "json_object" }` for structured annotation output
+- Batch processing via `batchProcess` (concurrency=2, per-item error recovery, rate-limit retries)
+- Endpoint: `POST /api/annotations/auto-annotate` — SSE stream, creates "AI Annotator (GPT)" coder automatically
+- Fix applied: p-retry v7 requires named `AbortError` import (not `pRetry.AbortError`)
 
 ## Note on Codegen
 
