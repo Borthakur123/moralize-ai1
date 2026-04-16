@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "Yh-_aYlD444MI_wa_YQnW"
+uri = "file://METHODS.md"
+type = "text"
+title = "Moralizing Machines Online — Methods Document"
