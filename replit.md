@@ -34,7 +34,7 @@ A research data collection and annotation platform for the "Moralizing Machines 
 1. **Anthropomorphism Level**: none / mild / strong
 2. **Mind Perception**: agency / experience / both / neither
 3. **Moral Evaluation**: praise / blame / concern / ambivalent / none
-4. **VASS Cues**: Values, Autonomy, Social Connection, Self-Aware Emotions (checkboxes)
+4. **MDMT Trust Cues**: Reliable, Capable (Capacity Trust) + Ethical, Sincere (Moral Trust) — boolean checkboxes
 5. **Uncanny**: eerie / creepy / fake-human / unsettling / none
 6. **Notes**: free text
 

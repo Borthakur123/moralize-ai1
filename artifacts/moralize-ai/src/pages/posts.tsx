@@ -298,7 +298,7 @@ export default function Posts() {
                       <li>Anthropomorphism Level (none / mild / strong)</li>
                       <li>Mind Perception (agency / experience / both / neither)</li>
                       <li>Moral Evaluation (praise / blame / concern / ambivalent / none)</li>
-                      <li>VASS Cues (values, autonomy, social connection, self-aware emotions)</li>
+                      <li>MDMT Trust Cues (reliable / capable / ethical / sincere)</li>
                       <li>Uncanny Marker (eerie / creepy / fake-human / unsettling / none)</li>
                     </ul>
                     <p className="text-xs pt-1">Only unannotated posts will be processed. Previously annotated posts are skipped.</p>
