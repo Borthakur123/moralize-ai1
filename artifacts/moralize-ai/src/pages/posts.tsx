@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, Plus, Upload, Filter, Search, BrainCircuit, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { Loader2, Plus, Upload, Filter, Search, BrainCircuit, CheckCircle2, XCircle, AlertCircle, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 
 type AiStatus = "idle" | "running" | "done" | "error";
@@ -257,6 +258,23 @@ export default function Posts() {
 
   const pct = aiTotal > 0 ? Math.round((aiCompleted / aiTotal) * 100) : 0;
 
+  const [isClearing, setIsClearing] = useState(false);
+
+  const handleClearAll = async () => {
+    setIsClearing(true);
+    try {
+      const res = await fetch("/api/posts/all", { method: "DELETE" });
+      if (!res.ok) throw new Error("Request failed");
+      toast({ title: "Data cleared", description: "All posts and annotations have been deleted." });
+      queryClient.invalidateQueries({ queryKey: getListPostsQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetStatsSummaryQueryKey() });
+    } catch {
+      toast({ variant: "destructive", title: "Error", description: "Failed to clear data." });
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -265,6 +283,35 @@ export default function Posts() {
           <p className="text-muted-foreground mt-1">Manage the dataset of Reddit posts for annotation.</p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          {/* Clear All Data */}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" className="gap-2 border-destructive text-destructive hover:bg-destructive hover:text-white">
+                <Trash2 className="h-4 w-4" />
+                Clear All Data
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Clear all data?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete <strong>all posts and all annotations</strong> from the database. This cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive hover:bg-destructive/90"
+                  onClick={handleClearAll}
+                  disabled={isClearing}
+                >
+                  {isClearing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Yes, delete everything
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
           {/* AI Auto-Annotate */}
           <Dialog open={isAiOpen} onOpenChange={(open) => {
             if (!open && aiStatus === "running") return;

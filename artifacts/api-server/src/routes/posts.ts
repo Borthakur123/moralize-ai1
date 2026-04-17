@@ -206,4 +206,10 @@ router.delete("/posts/:id", async (req, res): Promise<void> => {
   res.sendStatus(204);
 });
 
+router.delete("/posts/all", async (req, res): Promise<void> => {
+  await db.delete(annotationsTable);
+  await db.delete(postsTable);
+  res.json({ message: "All posts and annotations deleted." });
+});
+
 export default router;
