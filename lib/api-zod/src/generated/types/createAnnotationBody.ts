@@ -12,10 +12,10 @@ export interface CreateAnnotationBody {
   anthropomorphismLevel: string;
   mindPerception: string;
   moralEvaluation: string;
-  vassValues: boolean;
-  vassAutonomy: boolean;
-  vassSocialConnection: boolean;
-  vassSelfAwareEmotions: boolean;
+  mdmtReliable: boolean;
+  mdmtCapable: boolean;
+  mdmtEthical: boolean;
+  mdmtSincere: boolean;
   uncanny: string;
   /** @nullable */
   notes?: string | null;

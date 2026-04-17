@@ -18,10 +18,14 @@ export interface Annotation {
   mindPerception: string;
   /** praise | blame | concern | ambivalent | none */
   moralEvaluation: string;
-  vassValues: boolean;
-  vassAutonomy: boolean;
-  vassSocialConnection: boolean;
-  vassSelfAwareEmotions: boolean;
+  /** Capacity Trust — AI described as dependable, consistent, predictable */
+  mdmtReliable: boolean;
+  /** Capacity Trust — AI described as competent, skilled, effective */
+  mdmtCapable: boolean;
+  /** Moral Trust — AI described as principled, fair, morally good */
+  mdmtEthical: boolean;
+  /** Moral Trust — AI described as genuine, honest, transparent */
+  mdmtSincere: boolean;
   /** eerie | creepy | fake-human | unsettling | none */
   uncanny: string;
   /** @nullable */

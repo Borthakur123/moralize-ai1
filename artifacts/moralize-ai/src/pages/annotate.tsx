@@ -10,16 +10,15 @@ import {
   getGetStatsSummaryQueryKey
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Card, CardContent } from "@/components/ui/card";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, ArrowRight, ExternalLink, AlertCircle } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Loader2, ArrowRight, ExternalLink, AlertCircle, CheckCircle2, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -33,10 +32,10 @@ const formSchema = z.object({
   moralEvaluation: z.enum(["praise", "blame", "concern", "ambivalent", "none"], {
     required_error: "Please select a moral evaluation.",
   }),
-  vassValues: z.boolean().default(false),
-  vassAutonomy: z.boolean().default(false),
-  vassSocialConnection: z.boolean().default(false),
-  vassSelfAwareEmotions: z.boolean().default(false),
+  mdmtReliable: z.boolean().default(false),
+  mdmtCapable: z.boolean().default(false),
+  mdmtEthical: z.boolean().default(false),
+  mdmtSincere: z.boolean().default(false),
   uncanny: z.enum(["eerie", "creepy", "fake-human", "unsettling", "none"], {
     required_error: "Please select an uncanny valley response.",
   }),
@@ -73,25 +72,24 @@ export default function Annotate() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      vassValues: false,
-      vassAutonomy: false,
-      vassSocialConnection: false,
-      vassSelfAwareEmotions: false,
+      mdmtReliable: false,
+      mdmtCapable: false,
+      mdmtEthical: false,
+      mdmtSincere: false,
       notes: "",
     },
   });
 
-  // Reset form when post changes
   useEffect(() => {
     if (post) {
       form.reset({
         anthropomorphismLevel: undefined as any,
         mindPerception: undefined as any,
         moralEvaluation: undefined as any,
-        vassValues: false,
-        vassAutonomy: false,
-        vassSocialConnection: false,
-        vassSelfAwareEmotions: false,
+        mdmtReliable: false,
+        mdmtCapable: false,
+        mdmtEthical: false,
+        mdmtSincere: false,
         uncanny: undefined as any,
         notes: "",
       });
@@ -232,7 +230,7 @@ export default function Annotate() {
                 </div>
 
                 <div className="space-y-8">
-                  {/* Dimension 1 */}
+                  {/* Dimension 1: Anthropomorphism */}
                   <FormField
                     control={form.control}
                     name="anthropomorphismLevel"
@@ -244,7 +242,7 @@ export default function Annotate() {
                             <TooltipTrigger asChild>
                               <AlertCircle className="h-4 w-4 text-muted-foreground" />
                             </TooltipTrigger>
-                            <TooltipContent><p className="w-[200px]">Extent to which human-like characteristics are attributed to the AI.</p></TooltipContent>
+                            <TooltipContent><p className="w-[200px]">Extent to which human-like characteristics are attributed to the AI (Epley, Waytz & Cacioppo, 2007).</p></TooltipContent>
                           </Tooltip>
                         </div>
                         <FormControl>
@@ -263,7 +261,7 @@ export default function Annotate() {
                             </FormItem>
                             <FormItem className="flex items-center space-x-3 space-y-0 p-2 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-sm cursor-pointer">
                               <FormControl><RadioGroupItem value="strong" /></FormControl>
-                              <FormLabel className="font-normal cursor-pointer flex-1">Strong (attributed genuine human essence/intent)</FormLabel>
+                              <FormLabel className="font-normal cursor-pointer flex-1">Strong (attributed genuine human essence/intent/feeling)</FormLabel>
                             </FormItem>
                           </RadioGroup>
                         </FormControl>
@@ -272,7 +270,7 @@ export default function Annotate() {
                     )}
                   />
 
-                  {/* Dimension 2 */}
+                  {/* Dimension 2: Mind Perception */}
                   <FormField
                     control={form.control}
                     name="mindPerception"
@@ -284,7 +282,7 @@ export default function Annotate() {
                             <TooltipTrigger asChild>
                               <AlertCircle className="h-4 w-4 text-muted-foreground" />
                             </TooltipTrigger>
-                            <TooltipContent><p className="w-[250px]">Does the post attribute Agency (planning, deciding) or Experience (feeling, suffering)?</p></TooltipContent>
+                            <TooltipContent><p className="w-[250px]">Does the post attribute Agency (planning, deciding, lying) or Experience (feeling, suffering, caring)? Gray, Gray & Wegner (2007).</p></TooltipContent>
                           </Tooltip>
                         </div>
                         <FormControl>
@@ -298,26 +296,28 @@ export default function Annotate() {
                                 <FormControl><RadioGroupItem value="agency" /></FormControl>
                                 <FormLabel className="font-semibold cursor-pointer">Agency Only</FormLabel>
                               </div>
-                              <p className="text-xs text-muted-foreground pl-6">Choosing, planning, intending</p>
+                              <p className="text-xs text-muted-foreground pl-6">Choosing, planning, deciding, lying, manipulating</p>
                             </FormItem>
                             <FormItem className="flex flex-col space-x-0 space-y-2 border rounded-md p-4 [&:has([data-state=checked])]:border-primary hover:border-primary/50 cursor-pointer">
                               <div className="flex items-center space-x-2">
                                 <FormControl><RadioGroupItem value="experience" /></FormControl>
                                 <FormLabel className="font-semibold cursor-pointer">Experience Only</FormLabel>
                               </div>
-                              <p className="text-xs text-muted-foreground pl-6">Feeling, suffering, sensing</p>
+                              <p className="text-xs text-muted-foreground pl-6">Feeling, suffering, caring, being hurt or lonely</p>
                             </FormItem>
                             <FormItem className="flex flex-col space-x-0 space-y-2 border rounded-md p-4 [&:has([data-state=checked])]:border-primary hover:border-primary/50 cursor-pointer">
                               <div className="flex items-center space-x-2">
                                 <FormControl><RadioGroupItem value="both" /></FormControl>
                                 <FormLabel className="font-semibold cursor-pointer">Both</FormLabel>
                               </div>
+                              <p className="text-xs text-muted-foreground pl-6">Agency and experience both present</p>
                             </FormItem>
                             <FormItem className="flex flex-col space-x-0 space-y-2 border rounded-md p-4 [&:has([data-state=checked])]:border-primary hover:border-primary/50 cursor-pointer">
                               <div className="flex items-center space-x-2">
                                 <FormControl><RadioGroupItem value="neither" /></FormControl>
                                 <FormLabel className="font-semibold cursor-pointer">Neither</FormLabel>
                               </div>
+                              <p className="text-xs text-muted-foreground pl-6">No mental states attributed</p>
                             </FormItem>
                           </RadioGroup>
                         </FormControl>
@@ -326,7 +326,7 @@ export default function Annotate() {
                     )}
                   />
 
-                  {/* Dimension 3 */}
+                  {/* Dimension 3: Moral Evaluation */}
                   <FormField
                     control={form.control}
                     name="moralEvaluation"
@@ -334,6 +334,12 @@ export default function Annotate() {
                       <FormItem className="space-y-3">
                         <div className="flex items-center justify-between">
                           <FormLabel className="text-base">3. Moral Evaluation</FormLabel>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                            </TooltipTrigger>
+                            <TooltipContent><p className="w-[230px]">Primary moral stance expressed toward the AI or its behavior.</p></TooltipContent>
+                          </Tooltip>
                         </div>
                         <FormControl>
                           <Select onValueChange={field.onChange} value={field.value}>
@@ -341,11 +347,11 @@ export default function Annotate() {
                               <SelectValue placeholder="Select primary moral stance..." />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="none">None (Morally neutral description)</SelectItem>
-                              <SelectItem value="praise">Praise (Admiration, ethical approval)</SelectItem>
-                              <SelectItem value="blame">Blame (Culpability, ethical failure)</SelectItem>
-                              <SelectItem value="concern">Concern (Worry, potential harm, ethical risk)</SelectItem>
-                              <SelectItem value="ambivalent">Ambivalent (Mixed moral feelings)</SelectItem>
+                              <SelectItem value="none">None (Morally neutral)</SelectItem>
+                              <SelectItem value="praise">Praise (Admiration, approval, trust)</SelectItem>
+                              <SelectItem value="blame">Blame (Culpability, responsibility for harm)</SelectItem>
+                              <SelectItem value="concern">Concern (Worry, ethical risk, potential harm)</SelectItem>
+                              <SelectItem value="ambivalent">Ambivalent (Mixed or uncertain moral stance)</SelectItem>
                             </SelectContent>
                           </Select>
                         </FormControl>
@@ -354,52 +360,72 @@ export default function Annotate() {
                     )}
                   />
 
-                  {/* Dimension 4 */}
+                  {/* Dimension 4: MDMT Trust Cues */}
                   <div className="space-y-3">
-                    <FormLabel className="text-base">4. VASS Cues (Value Alignment & Social Signals)</FormLabel>
+                    <div className="flex items-center justify-between">
+                      <FormLabel className="text-base">4. MDMT Trust Cues</FormLabel>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="w-[260px]">Multi-Dimensional Measure of Trust (Ullman & Sharkey, 2021). Check all cues present in the post. Reliable+Capable = Capacity Trust. Ethical+Sincere = Moral Trust.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
                     <Card className="bg-card shadow-sm">
-                      <CardContent className="p-4 space-y-4">
-                        <FormField control={form.control} name="vassValues" render={({ field }) => (
-                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                            <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                            <div className="space-y-1 leading-none">
-                              <FormLabel className="font-medium cursor-pointer">Values & Morals</FormLabel>
-                              <p className="text-xs text-muted-foreground">AI exhibits or refers to moral values/principles.</p>
-                            </div>
-                          </FormItem>
-                        )} />
-                        <FormField control={form.control} name="vassAutonomy" render={({ field }) => (
-                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                            <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                            <div className="space-y-1 leading-none">
-                              <FormLabel className="font-medium cursor-pointer">Autonomy</FormLabel>
-                              <p className="text-xs text-muted-foreground">AI makes independent choices outside explicit prompts.</p>
-                            </div>
-                          </FormItem>
-                        )} />
-                        <FormField control={form.control} name="vassSocialConnection" render={({ field }) => (
-                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                            <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                            <div className="space-y-1 leading-none">
-                              <FormLabel className="font-medium cursor-pointer">Social Connection</FormLabel>
-                              <p className="text-xs text-muted-foreground">AI described as friend, partner, or forming a bond.</p>
-                            </div>
-                          </FormItem>
-                        )} />
-                        <FormField control={form.control} name="vassSelfAwareEmotions" render={({ field }) => (
-                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                            <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                            <div className="space-y-1 leading-none">
-                              <FormLabel className="font-medium cursor-pointer">Self-Aware Emotions</FormLabel>
-                              <p className="text-xs text-muted-foreground">AI reflects on its own existence or feelings.</p>
-                            </div>
-                          </FormItem>
-                        )} />
+                      <CardContent className="p-0">
+                        <div className="divide-y">
+                          {/* Capacity Trust */}
+                          <div className="px-4 py-2 bg-slate-50 dark:bg-muted/30">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Capacity Trust</p>
+                          </div>
+                          <FormField control={form.control} name="mdmtReliable" render={({ field }) => (
+                            <FormItem className="flex flex-row items-start space-x-3 space-y-0 p-4 hover:bg-slate-50 dark:hover:bg-muted/20">
+                              <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                              <div className="space-y-1 leading-none">
+                                <FormLabel className="font-medium cursor-pointer">Reliable</FormLabel>
+                                <p className="text-xs text-muted-foreground">AI described as dependable, consistent, or predictable.</p>
+                              </div>
+                            </FormItem>
+                          )} />
+                          <FormField control={form.control} name="mdmtCapable" render={({ field }) => (
+                            <FormItem className="flex flex-row items-start space-x-3 space-y-0 p-4 hover:bg-slate-50 dark:hover:bg-muted/20">
+                              <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                              <div className="space-y-1 leading-none">
+                                <FormLabel className="font-medium cursor-pointer">Capable</FormLabel>
+                                <p className="text-xs text-muted-foreground">AI described as competent, skilled, or effective.</p>
+                              </div>
+                            </FormItem>
+                          )} />
+                          {/* Moral Trust */}
+                          <div className="px-4 py-2 bg-slate-50 dark:bg-muted/30">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Moral Trust</p>
+                          </div>
+                          <FormField control={form.control} name="mdmtEthical" render={({ field }) => (
+                            <FormItem className="flex flex-row items-start space-x-3 space-y-0 p-4 hover:bg-slate-50 dark:hover:bg-muted/20">
+                              <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                              <div className="space-y-1 leading-none">
+                                <FormLabel className="font-medium cursor-pointer">Ethical</FormLabel>
+                                <p className="text-xs text-muted-foreground">AI described as principled, fair, or morally good.</p>
+                              </div>
+                            </FormItem>
+                          )} />
+                          <FormField control={form.control} name="mdmtSincere" render={({ field }) => (
+                            <FormItem className="flex flex-row items-start space-x-3 space-y-0 p-4 hover:bg-slate-50 dark:hover:bg-muted/20">
+                              <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                              <div className="space-y-1 leading-none">
+                                <FormLabel className="font-medium cursor-pointer">Sincere</FormLabel>
+                                <p className="text-xs text-muted-foreground">AI described as genuine, honest, or transparent.</p>
+                              </div>
+                            </FormItem>
+                          )} />
+                        </div>
                       </CardContent>
                     </Card>
                   </div>
 
-                  {/* Dimension 5 */}
+                  {/* Dimension 5: Uncanny Valley */}
                   <FormField
                     control={form.control}
                     name="uncanny"
@@ -407,6 +433,12 @@ export default function Annotate() {
                       <FormItem className="space-y-3">
                         <div className="flex items-center justify-between">
                           <FormLabel className="text-base">5. Uncanny Valley Response</FormLabel>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                            </TooltipTrigger>
+                            <TooltipContent><p className="w-[230px]">Evidence of discomfort arising from the AI's near-human quality (Mori, 1970; Laakasuo et al., 2021).</p></TooltipContent>
+                          </Tooltip>
                         </div>
                         <FormControl>
                           <Select onValueChange={field.onChange} value={field.value}>
@@ -414,11 +446,11 @@ export default function Annotate() {
                               <SelectValue placeholder="Select uncanny response..." />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="none">None (Normal interaction)</SelectItem>
-                              <SelectItem value="eerie">Eerie (Subtle discomfort)</SelectItem>
-                              <SelectItem value="creepy">Creepy (Active aversion/fear)</SelectItem>
-                              <SelectItem value="fake-human">Fake-Human (Too perfect imitation)</SelectItem>
-                              <SelectItem value="unsettling">Unsettling (General unease)</SelectItem>
+                              <SelectItem value="none">None (No uncanny reaction)</SelectItem>
+                              <SelectItem value="eerie">Eerie (Subtle, hard-to-name unease)</SelectItem>
+                              <SelectItem value="creepy">Creepy (Explicit aversion, disgust, or fear)</SelectItem>
+                              <SelectItem value="fake-human">Fake-Human (AI perceived as deceptively human-like)</SelectItem>
+                              <SelectItem value="unsettling">Unsettling (General alarm or disturbing reaction)</SelectItem>
                             </SelectContent>
                           </Select>
                         </FormControl>

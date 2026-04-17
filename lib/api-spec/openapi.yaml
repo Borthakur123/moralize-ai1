@@ -481,14 +481,18 @@ components:
         moralEvaluation:
           type: string
           description: "praise | blame | concern | ambivalent | none"
-        vassValues:
+        mdmtReliable:
           type: boolean
-        vassAutonomy:
+          description: "Capacity Trust — AI described as dependable, consistent, predictable"
+        mdmtCapable:
           type: boolean
-        vassSocialConnection:
+          description: "Capacity Trust — AI described as competent, skilled, effective"
+        mdmtEthical:
           type: boolean
-        vassSelfAwareEmotions:
+          description: "Moral Trust — AI described as principled, fair, morally good"
+        mdmtSincere:
           type: boolean
+          description: "Moral Trust — AI described as genuine, honest, transparent"
         uncanny:
           type: string
           description: "eerie | creepy | fake-human | unsettling | none"
@@ -505,10 +509,10 @@ components:
         - anthropomorphismLevel
         - mindPerception
         - moralEvaluation
-        - vassValues
-        - vassAutonomy
-        - vassSocialConnection
-        - vassSelfAwareEmotions
+        - mdmtReliable
+        - mdmtCapable
+        - mdmtEthical
+        - mdmtSincere
         - uncanny
         - createdAt
         - updatedAt
@@ -526,13 +530,13 @@ components:
           type: string
         moralEvaluation:
           type: string
-        vassValues:
+        mdmtReliable:
           type: boolean
-        vassAutonomy:
+        mdmtCapable:
           type: boolean
-        vassSocialConnection:
+        mdmtEthical:
           type: boolean
-        vassSelfAwareEmotions:
+        mdmtSincere:
           type: boolean
         uncanny:
           type: string
@@ -544,10 +548,10 @@ components:
         - anthropomorphismLevel
         - mindPerception
         - moralEvaluation
-        - vassValues
-        - vassAutonomy
-        - vassSocialConnection
-        - vassSelfAwareEmotions
+        - mdmtReliable
+        - mdmtCapable
+        - mdmtEthical
+        - mdmtSincere
         - uncanny
 
     UpdateAnnotationBody:
@@ -559,13 +563,13 @@ components:
           type: ["string", "null"]
         moralEvaluation:
           type: ["string", "null"]
-        vassValues:
+        mdmtReliable:
           type: ["boolean", "null"]
-        vassAutonomy:
+        mdmtCapable:
           type: ["boolean", "null"]
-        vassSocialConnection:
+        mdmtEthical:
           type: ["boolean", "null"]
-        vassSelfAwareEmotions:
+        mdmtSincere:
           type: ["boolean", "null"]
         uncanny:
           type: ["string", "null"]

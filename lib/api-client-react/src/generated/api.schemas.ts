@@ -68,10 +68,14 @@ export interface Annotation {
   mindPerception: string;
   /** praise | blame | concern | ambivalent | none */
   moralEvaluation: string;
-  vassValues: boolean;
-  vassAutonomy: boolean;
-  vassSocialConnection: boolean;
-  vassSelfAwareEmotions: boolean;
+  /** Capacity Trust — AI described as dependable, consistent, predictable */
+  mdmtReliable: boolean;
+  /** Capacity Trust — AI described as competent, skilled, effective */
+  mdmtCapable: boolean;
+  /** Moral Trust — AI described as principled, fair, morally good */
+  mdmtEthical: boolean;
+  /** Moral Trust — AI described as genuine, honest, transparent */
+  mdmtSincere: boolean;
   /** eerie | creepy | fake-human | unsettling | none */
   uncanny: string;
   /** @nullable */
@@ -86,10 +90,10 @@ export interface CreateAnnotationBody {
   anthropomorphismLevel: string;
   mindPerception: string;
   moralEvaluation: string;
-  vassValues: boolean;
-  vassAutonomy: boolean;
-  vassSocialConnection: boolean;
-  vassSelfAwareEmotions: boolean;
+  mdmtReliable: boolean;
+  mdmtCapable: boolean;
+  mdmtEthical: boolean;
+  mdmtSincere: boolean;
   uncanny: string;
   /** @nullable */
   notes?: string | null;
@@ -103,13 +107,13 @@ export interface UpdateAnnotationBody {
   /** @nullable */
   moralEvaluation?: string | null;
   /** @nullable */
-  vassValues?: boolean | null;
+  mdmtReliable?: boolean | null;
   /** @nullable */
-  vassAutonomy?: boolean | null;
+  mdmtCapable?: boolean | null;
   /** @nullable */
-  vassSocialConnection?: boolean | null;
+  mdmtEthical?: boolean | null;
   /** @nullable */
-  vassSelfAwareEmotions?: boolean | null;
+  mdmtSincere?: boolean | null;
   /** @nullable */
   uncanny?: string | null;
   /** @nullable */

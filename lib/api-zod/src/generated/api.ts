@@ -120,10 +120,20 @@ export const GetPostAnnotationsResponseItem = zod.object({
   moralEvaluation: zod
     .string()
     .describe("praise | blame | concern | ambivalent | none"),
-  vassValues: zod.boolean(),
-  vassAutonomy: zod.boolean(),
-  vassSocialConnection: zod.boolean(),
-  vassSelfAwareEmotions: zod.boolean(),
+  mdmtReliable: zod
+    .boolean()
+    .describe(
+      "Capacity Trust — AI described as dependable, consistent, predictable",
+    ),
+  mdmtCapable: zod
+    .boolean()
+    .describe("Capacity Trust — AI described as competent, skilled, effective"),
+  mdmtEthical: zod
+    .boolean()
+    .describe("Moral Trust — AI described as principled, fair, morally good"),
+  mdmtSincere: zod
+    .boolean()
+    .describe("Moral Trust — AI described as genuine, honest, transparent"),
   uncanny: zod
     .string()
     .describe("eerie | creepy | fake-human | unsettling | none"),
@@ -153,10 +163,20 @@ export const ListAnnotationsResponseItem = zod.object({
   moralEvaluation: zod
     .string()
     .describe("praise | blame | concern | ambivalent | none"),
-  vassValues: zod.boolean(),
-  vassAutonomy: zod.boolean(),
-  vassSocialConnection: zod.boolean(),
-  vassSelfAwareEmotions: zod.boolean(),
+  mdmtReliable: zod
+    .boolean()
+    .describe(
+      "Capacity Trust — AI described as dependable, consistent, predictable",
+    ),
+  mdmtCapable: zod
+    .boolean()
+    .describe("Capacity Trust — AI described as competent, skilled, effective"),
+  mdmtEthical: zod
+    .boolean()
+    .describe("Moral Trust — AI described as principled, fair, morally good"),
+  mdmtSincere: zod
+    .boolean()
+    .describe("Moral Trust — AI described as genuine, honest, transparent"),
   uncanny: zod
     .string()
     .describe("eerie | creepy | fake-human | unsettling | none"),
@@ -175,10 +195,10 @@ export const CreateAnnotationBody = zod.object({
   anthropomorphismLevel: zod.string(),
   mindPerception: zod.string(),
   moralEvaluation: zod.string(),
-  vassValues: zod.boolean(),
-  vassAutonomy: zod.boolean(),
-  vassSocialConnection: zod.boolean(),
-  vassSelfAwareEmotions: zod.boolean(),
+  mdmtReliable: zod.boolean(),
+  mdmtCapable: zod.boolean(),
+  mdmtEthical: zod.boolean(),
+  mdmtSincere: zod.boolean(),
   uncanny: zod.string(),
   notes: zod.string().nullish(),
 });
@@ -200,10 +220,20 @@ export const GetAnnotationResponse = zod.object({
   moralEvaluation: zod
     .string()
     .describe("praise | blame | concern | ambivalent | none"),
-  vassValues: zod.boolean(),
-  vassAutonomy: zod.boolean(),
-  vassSocialConnection: zod.boolean(),
-  vassSelfAwareEmotions: zod.boolean(),
+  mdmtReliable: zod
+    .boolean()
+    .describe(
+      "Capacity Trust — AI described as dependable, consistent, predictable",
+    ),
+  mdmtCapable: zod
+    .boolean()
+    .describe("Capacity Trust — AI described as competent, skilled, effective"),
+  mdmtEthical: zod
+    .boolean()
+    .describe("Moral Trust — AI described as principled, fair, morally good"),
+  mdmtSincere: zod
+    .boolean()
+    .describe("Moral Trust — AI described as genuine, honest, transparent"),
   uncanny: zod
     .string()
     .describe("eerie | creepy | fake-human | unsettling | none"),
@@ -223,10 +253,10 @@ export const UpdateAnnotationBody = zod.object({
   anthropomorphismLevel: zod.string().nullish(),
   mindPerception: zod.string().nullish(),
   moralEvaluation: zod.string().nullish(),
-  vassValues: zod.boolean().nullish(),
-  vassAutonomy: zod.boolean().nullish(),
-  vassSocialConnection: zod.boolean().nullish(),
-  vassSelfAwareEmotions: zod.boolean().nullish(),
+  mdmtReliable: zod.boolean().nullish(),
+  mdmtCapable: zod.boolean().nullish(),
+  mdmtEthical: zod.boolean().nullish(),
+  mdmtSincere: zod.boolean().nullish(),
   uncanny: zod.string().nullish(),
   notes: zod.string().nullish(),
 });
@@ -241,10 +271,20 @@ export const UpdateAnnotationResponse = zod.object({
   moralEvaluation: zod
     .string()
     .describe("praise | blame | concern | ambivalent | none"),
-  vassValues: zod.boolean(),
-  vassAutonomy: zod.boolean(),
-  vassSocialConnection: zod.boolean(),
-  vassSelfAwareEmotions: zod.boolean(),
+  mdmtReliable: zod
+    .boolean()
+    .describe(
+      "Capacity Trust — AI described as dependable, consistent, predictable",
+    ),
+  mdmtCapable: zod
+    .boolean()
+    .describe("Capacity Trust — AI described as competent, skilled, effective"),
+  mdmtEthical: zod
+    .boolean()
+    .describe("Moral Trust — AI described as principled, fair, morally good"),
+  mdmtSincere: zod
+    .boolean()
+    .describe("Moral Trust — AI described as genuine, honest, transparent"),
   uncanny: zod
     .string()
     .describe("eerie | creepy | fake-human | unsettling | none"),

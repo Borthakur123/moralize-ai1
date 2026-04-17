@@ -14,13 +14,13 @@ export interface UpdateAnnotationBody {
   /** @nullable */
   moralEvaluation?: string | null;
   /** @nullable */
-  vassValues?: boolean | null;
+  mdmtReliable?: boolean | null;
   /** @nullable */
-  vassAutonomy?: boolean | null;
+  mdmtCapable?: boolean | null;
   /** @nullable */
-  vassSocialConnection?: boolean | null;
+  mdmtEthical?: boolean | null;
   /** @nullable */
-  vassSelfAwareEmotions?: boolean | null;
+  mdmtSincere?: boolean | null;
   /** @nullable */
   uncanny?: string | null;
   /** @nullable */
