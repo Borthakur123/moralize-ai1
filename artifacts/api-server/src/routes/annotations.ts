@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, sql, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db, annotationsTable, postsTable, codersTable } from "@workspace/db";
 import {
   ListAnnotationsQueryParams,
@@ -23,10 +23,10 @@ const annotationWithCoderName = (coderId?: number, postId?: number) => {
       anthropomorphismLevel: annotationsTable.anthropomorphismLevel,
       mindPerception: annotationsTable.mindPerception,
       moralEvaluation: annotationsTable.moralEvaluation,
-      vassValues: annotationsTable.vassValues,
-      vassAutonomy: annotationsTable.vassAutonomy,
-      vassSocialConnection: annotationsTable.vassSocialConnection,
-      vassSelfAwareEmotions: annotationsTable.vassSelfAwareEmotions,
+      mdmtReliable: annotationsTable.mdmtReliable,
+      mdmtCapable: annotationsTable.mdmtCapable,
+      mdmtEthical: annotationsTable.mdmtEthical,
+      mdmtSincere: annotationsTable.mdmtSincere,
       uncanny: annotationsTable.uncanny,
       notes: annotationsTable.notes,
       createdAt: annotationsTable.createdAt,
@@ -53,7 +53,6 @@ router.get("/posts/:id/annotations", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
-
   const annotations = await annotationWithCoderName(undefined, params.data.id);
   res.json(annotations);
 });
@@ -75,10 +74,10 @@ router.get("/annotations/export", async (req, res): Promise<void> => {
       anthropomorphism_level: annotationsTable.anthropomorphismLevel,
       mind_perception: annotationsTable.mindPerception,
       moral_evaluation: annotationsTable.moralEvaluation,
-      vass_values: annotationsTable.vassValues,
-      vass_autonomy: annotationsTable.vassAutonomy,
-      vass_social_connection: annotationsTable.vassSocialConnection,
-      vass_self_aware_emotions: annotationsTable.vassSelfAwareEmotions,
+      mdmt_reliable: annotationsTable.mdmtReliable,
+      mdmt_capable: annotationsTable.mdmtCapable,
+      mdmt_ethical: annotationsTable.mdmtEthical,
+      mdmt_sincere: annotationsTable.mdmtSincere,
       uncanny: annotationsTable.uncanny,
       notes: annotationsTable.notes,
       annotated_at: annotationsTable.createdAt,
@@ -93,7 +92,7 @@ router.get("/annotations/export", async (req, res): Promise<void> => {
     "post_title", "post_content", "post_url", "post_posted_at",
     "coder_id", "coder_name",
     "anthropomorphism_level", "mind_perception", "moral_evaluation",
-    "vass_values", "vass_autonomy", "vass_social_connection", "vass_self_aware_emotions",
+    "mdmt_reliable", "mdmt_capable", "mdmt_ethical", "mdmt_sincere",
     "uncanny", "notes", "annotated_at"
   ];
 
@@ -124,7 +123,6 @@ router.get("/annotations", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-
   const { coderId, postId } = parsed.data;
   const annotations = await annotationWithCoderName(
     coderId ?? undefined,
@@ -141,7 +139,6 @@ router.post("/annotations", async (req, res): Promise<void> => {
   }
 
   const [annotation] = await db.insert(annotationsTable).values(parsed.data).returning();
-
   const [coder] = await db
     .select({ name: codersTable.name })
     .from(codersTable)
@@ -167,10 +164,10 @@ router.get("/annotations/:id", async (req, res): Promise<void> => {
       anthropomorphismLevel: annotationsTable.anthropomorphismLevel,
       mindPerception: annotationsTable.mindPerception,
       moralEvaluation: annotationsTable.moralEvaluation,
-      vassValues: annotationsTable.vassValues,
-      vassAutonomy: annotationsTable.vassAutonomy,
-      vassSocialConnection: annotationsTable.vassSocialConnection,
-      vassSelfAwareEmotions: annotationsTable.vassSelfAwareEmotions,
+      mdmtReliable: annotationsTable.mdmtReliable,
+      mdmtCapable: annotationsTable.mdmtCapable,
+      mdmtEthical: annotationsTable.mdmtEthical,
+      mdmtSincere: annotationsTable.mdmtSincere,
       uncanny: annotationsTable.uncanny,
       notes: annotationsTable.notes,
       createdAt: annotationsTable.createdAt,
@@ -184,7 +181,6 @@ router.get("/annotations/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Annotation not found" });
     return;
   }
-
   res.json(annotation);
 });
 
@@ -206,21 +202,22 @@ router.patch("/annotations/:id", async (req, res): Promise<void> => {
     anthropomorphismLevel: string;
     mindPerception: string;
     moralEvaluation: string;
-    vassValues: boolean;
-    vassAutonomy: boolean;
-    vassSocialConnection: boolean;
-    vassSelfAwareEmotions: boolean;
+    mdmtReliable: boolean;
+    mdmtCapable: boolean;
+    mdmtEthical: boolean;
+    mdmtSincere: boolean;
     uncanny: string;
     notes: string | null;
   }> = {};
+
   const d = parsed.data;
   if (d.anthropomorphismLevel != null) updateData.anthropomorphismLevel = d.anthropomorphismLevel;
   if (d.mindPerception != null) updateData.mindPerception = d.mindPerception;
   if (d.moralEvaluation != null) updateData.moralEvaluation = d.moralEvaluation;
-  if (d.vassValues != null) updateData.vassValues = d.vassValues;
-  if (d.vassAutonomy != null) updateData.vassAutonomy = d.vassAutonomy;
-  if (d.vassSocialConnection != null) updateData.vassSocialConnection = d.vassSocialConnection;
-  if (d.vassSelfAwareEmotions != null) updateData.vassSelfAwareEmotions = d.vassSelfAwareEmotions;
+  if (d.mdmtReliable != null) updateData.mdmtReliable = d.mdmtReliable;
+  if (d.mdmtCapable != null) updateData.mdmtCapable = d.mdmtCapable;
+  if (d.mdmtEthical != null) updateData.mdmtEthical = d.mdmtEthical;
+  if (d.mdmtSincere != null) updateData.mdmtSincere = d.mdmtSincere;
   if (d.uncanny != null) updateData.uncanny = d.uncanny;
   if ("notes" in d) updateData.notes = d.notes ?? null;
 
