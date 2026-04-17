@@ -189,6 +189,12 @@ router.get("/posts/:id", async (req, res): Promise<void> => {
   res.json({ ...post, annotationCount: Number(post.annotationCount) });
 });
 
+router.delete("/posts/all", async (req, res): Promise<void> => {
+  await db.delete(annotationsTable);
+  await db.delete(postsTable);
+  res.json({ message: "All posts and annotations deleted." });
+});
+
 router.delete("/posts/:id", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = DeletePostParams.safeParse({ id: raw });
@@ -204,12 +210,6 @@ router.delete("/posts/:id", async (req, res): Promise<void> => {
   }
 
   res.sendStatus(204);
-});
-
-router.delete("/posts/all", async (req, res): Promise<void> => {
-  await db.delete(annotationsTable);
-  await db.delete(postsTable);
-  res.json({ message: "All posts and annotations deleted." });
 });
 
 export default router;
