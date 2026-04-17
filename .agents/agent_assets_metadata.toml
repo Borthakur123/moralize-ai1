@@ -6,3 +6,9 @@ id = "Yh-_aYlD444MI_wa_YQnW"
 uri = "file://METHODS.md"
 type = "text"
 title = "Updated Methods Document — MDMT Framework"
+
+[[outputs]]
+id = "u-0sVh8htv52GWPkRq1wb"
+uri = "file://MoralizeAI_Methods.docx"
+type = "word_document"
+title = "MoralizeAI — Data Collection & Methods (Word)"
