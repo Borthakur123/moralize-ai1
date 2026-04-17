@@ -48,7 +48,7 @@ export default function Posts() {
     ...(annotated !== "all" && { annotated })
   };
 
-  const { data: posts, isLoading } = useListPosts(queryParams);
+  const { data: posts, isLoading } = useListPosts({ ...queryParams, limit: 500 });
   const bulkCreate = useBulkCreatePosts();
 
   // Normalize a single raw Reddit post object into our schema

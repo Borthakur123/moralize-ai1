@@ -19,7 +19,7 @@ router.get("/posts", async (req, res): Promise<void> => {
     return;
   }
 
-  const { subreddit, annotated, limit = 50, offset = 0 } = parsed.data;
+  const { subreddit, annotated, limit = 500, offset = 0 } = parsed.data;
 
   const countSq = db
     .select({ postId: annotationsTable.postId, cnt: sql<number>`count(*)`.as("cnt") })
