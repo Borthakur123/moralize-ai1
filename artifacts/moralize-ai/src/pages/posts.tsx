@@ -267,25 +267,37 @@ export default function Posts() {
   const handleFetchReddit = async () => {
     setIsFetchingReddit(true);
     try {
-      const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-      const resp = await fetch(`${base}/api/posts/fetch-reddit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subreddit: redditSubreddit.trim(),
-          limit: Number(redditLimit) || 100,
-          ...(redditQuery.trim() ? { searchQuery: redditQuery.trim() } : {}),
-        }),
-      });
+      const sub = redditSubreddit.trim();
+      const maxPosts = Math.min(Number(redditLimit) || 100, 500);
+      const batchSize = 100;
+      const allRaw: Record<string, unknown>[] = [];
+      let after: string | null = null;
 
-      const result = await resp.json() as { posts?: Record<string, unknown>[]; error?: string };
-      if (!resp.ok || result.error) {
-        toast({ variant: "destructive", title: "Fetch failed", description: result.error ?? "Unknown error" });
-        return;
+      while (allRaw.length < maxPosts) {
+        const remaining = maxPosts - allRaw.length;
+        const fetchCount = Math.min(batchSize, remaining);
+        let url: string;
+        if (redditQuery.trim()) {
+          url = `https://www.reddit.com/r/${encodeURIComponent(sub)}/search.json?q=${encodeURIComponent(redditQuery.trim())}&restrict_sr=1&sort=new&limit=${fetchCount}`;
+        } else {
+          url = `https://www.reddit.com/r/${encodeURIComponent(sub)}/new.json?limit=${fetchCount}`;
+        }
+        if (after) url += `&after=${after}`;
+
+        const resp = await fetch(url, { headers: { "Accept": "application/json" } });
+        if (!resp.ok) {
+          toast({ variant: "destructive", title: "Fetch failed", description: `Reddit returned ${resp.status}. Make sure the subreddit name is correct and is public.` });
+          return;
+        }
+        const json = await resp.json() as { data?: { children?: { kind: string; data: Record<string, unknown> }[]; after?: string | null } };
+        const children = json?.data?.children ?? [];
+        const posts = children.filter(c => c.kind === "t3").map(c => c.data);
+        allRaw.push(...posts);
+        after = json?.data?.after ?? null;
+        if (!after || posts.length === 0) break;
       }
 
-      const rawPosts = result.posts ?? [];
-      const postsArray = rawPosts.map(normalizeRedditPost);
+      const postsArray = allRaw.slice(0, maxPosts).map(normalizeRedditPost);
       const emptyCount = postsArray.filter(p => p._empty).length;
       const validPosts = postsArray.filter(p => !p._empty).map(({ _empty, ...rest }) => rest);
 
@@ -302,7 +314,7 @@ export default function Posts() {
           ].filter(Boolean).join(", ");
           toast({
             title: "Import complete",
-            description: `Imported ${res.imported} posts from r/${redditSubreddit}.${skippedMsg ? ` (${skippedMsg})` : ""}`,
+            description: `Imported ${res.imported} posts from r/${sub}.${skippedMsg ? ` (${skippedMsg})` : ""}`,
           });
           setIsRedditOpen(false);
           queryClient.invalidateQueries({ queryKey: getListPostsQueryKey() });
