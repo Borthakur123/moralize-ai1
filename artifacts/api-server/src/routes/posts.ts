@@ -189,6 +189,56 @@ router.get("/posts/:id", async (req, res): Promise<void> => {
   res.json({ ...post, annotationCount: Number(post.annotationCount) });
 });
 
+router.post("/posts/fetch-reddit", async (req, res): Promise<void> => {
+  const { subreddit, limit = 100, searchQuery } = req.body as { subreddit: string; limit?: number; searchQuery?: string };
+
+  if (!subreddit || typeof subreddit !== "string") {
+    res.status(400).json({ error: "subreddit is required" });
+    return;
+  }
+
+  const maxPosts = Math.min(Number(limit) || 100, 500);
+  const batchSize = 100;
+  const allPosts: Record<string, unknown>[] = [];
+  let after: string | null = null;
+
+  try {
+    while (allPosts.length < maxPosts) {
+      const remaining = maxPosts - allPosts.length;
+      const fetchCount = Math.min(batchSize, remaining);
+
+      let url: string;
+      if (searchQuery) {
+        url = `https://www.reddit.com/r/${encodeURIComponent(subreddit)}/search.json?q=${encodeURIComponent(searchQuery)}&restrict_sr=1&sort=new&limit=${fetchCount}`;
+      } else {
+        url = `https://www.reddit.com/r/${encodeURIComponent(subreddit)}/new.json?limit=${fetchCount}`;
+      }
+      if (after) url += `&after=${after}`;
+
+      const response = await fetch(url, {
+        headers: { "User-Agent": "MoralizeAI/1.0 (computational social science research)" },
+      });
+
+      if (!response.ok) {
+        res.status(502).json({ error: `Reddit returned ${response.status}` });
+        return;
+      }
+
+      const json = await response.json() as { data?: { children?: { kind: string; data: Record<string, unknown> }[]; after?: string | null } };
+      const children = json?.data?.children ?? [];
+      const posts = children.filter(c => c.kind === "t3").map(c => c.data);
+      allPosts.push(...posts);
+      after = json?.data?.after ?? null;
+
+      if (!after || posts.length === 0) break;
+    }
+
+    res.json({ posts: allPosts.slice(0, maxPosts) });
+  } catch (err) {
+    res.status(502).json({ error: `Failed to fetch from Reddit: ${String(err)}` });
+  }
+});
+
 router.delete("/posts/all", async (req, res): Promise<void> => {
   await db.delete(annotationsTable);
   await db.delete(postsTable);

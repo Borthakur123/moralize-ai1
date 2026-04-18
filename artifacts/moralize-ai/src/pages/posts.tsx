@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, Plus, Upload, Filter, Search, BrainCircuit, CheckCircle2, XCircle, AlertCircle, Trash2 } from "lucide-react";
+import { Loader2, Plus, Upload, Filter, Search, BrainCircuit, CheckCircle2, XCircle, AlertCircle, Trash2, RefreshCw } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 
@@ -32,6 +32,12 @@ export default function Posts() {
   const [annotated, setAnnotated] = useState<string>("all");
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [importJson, setImportJson] = useState("");
+
+  const [isRedditOpen, setIsRedditOpen] = useState(false);
+  const [redditSubreddit, setRedditSubreddit] = useState("ChatGPT");
+  const [redditLimit, setRedditLimit] = useState("100");
+  const [redditQuery, setRedditQuery] = useState("");
+  const [isFetchingReddit, setIsFetchingReddit] = useState(false);
 
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [aiStatus, setAiStatus] = useState<AiStatus>("idle");
@@ -258,6 +264,61 @@ export default function Posts() {
 
   const pct = aiTotal > 0 ? Math.round((aiCompleted / aiTotal) * 100) : 0;
 
+  const handleFetchReddit = async () => {
+    setIsFetchingReddit(true);
+    try {
+      const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const resp = await fetch(`${base}/api/posts/fetch-reddit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subreddit: redditSubreddit.trim(),
+          limit: Number(redditLimit) || 100,
+          ...(redditQuery.trim() ? { searchQuery: redditQuery.trim() } : {}),
+        }),
+      });
+
+      const result = await resp.json() as { posts?: Record<string, unknown>[]; error?: string };
+      if (!resp.ok || result.error) {
+        toast({ variant: "destructive", title: "Fetch failed", description: result.error ?? "Unknown error" });
+        return;
+      }
+
+      const rawPosts = result.posts ?? [];
+      const postsArray = rawPosts.map(normalizeRedditPost);
+      const emptyCount = postsArray.filter(p => p._empty).length;
+      const validPosts = postsArray.filter(p => !p._empty).map(({ _empty, ...rest }) => rest);
+
+      if (validPosts.length === 0) {
+        toast({ variant: "destructive", title: "No text posts found", description: `All ${emptyCount} posts were link/image posts with no body text.` });
+        return;
+      }
+
+      bulkCreate.mutate({ data: { posts: validPosts } }, {
+        onSuccess: (res) => {
+          const skippedMsg = [
+            res.skipped > 0 ? `${res.skipped} duplicate${res.skipped > 1 ? "s" : ""} skipped` : null,
+            emptyCount > 0 ? `${emptyCount} link/image posts skipped` : null,
+          ].filter(Boolean).join(", ");
+          toast({
+            title: "Import complete",
+            description: `Imported ${res.imported} posts from r/${redditSubreddit}.${skippedMsg ? ` (${skippedMsg})` : ""}`,
+          });
+          setIsRedditOpen(false);
+          queryClient.invalidateQueries({ queryKey: getListPostsQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetStatsSummaryQueryKey() });
+        },
+        onError: (err) => {
+          toast({ variant: "destructive", title: "Import failed", description: String(err) });
+        },
+      });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Fetch failed", description: String(err) });
+    } finally {
+      setIsFetchingReddit(false);
+    }
+  };
+
   const [isClearing, setIsClearing] = useState(false);
 
   const handleClearAll = async () => {
@@ -400,6 +461,75 @@ export default function Posts() {
                     </Button>
                   )}
                 </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Fetch from Reddit */}
+          <Dialog open={isRedditOpen} onOpenChange={setIsRedditOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <RefreshCw className="h-4 w-4" />
+                Fetch from Reddit
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[480px]">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <RefreshCw className="h-5 w-5 text-orange-500" />
+                  Fetch from Reddit
+                </DialogTitle>
+                <DialogDescription>
+                  Pull posts directly from any public subreddit. The app handles pagination automatically.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium">Subreddit</label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground text-sm">r/</span>
+                    <Input
+                      placeholder="ChatGPT"
+                      value={redditSubreddit}
+                      onChange={e => setRedditSubreddit(e.target.value)}
+                      className="flex-1"
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium">Keyword search <span className="font-normal text-muted-foreground">(optional)</span></label>
+                  <Input
+                    placeholder='e.g. "feels like talking to a person"'
+                    value={redditQuery}
+                    onChange={e => setRedditQuery(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">Leave blank to get the newest posts. Add a keyword to search within the subreddit.</p>
+                </div>
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium">Max posts to fetch</label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={500}
+                    value={redditLimit}
+                    onChange={e => setRedditLimit(e.target.value)}
+                    className="w-32"
+                  />
+                  <p className="text-xs text-muted-foreground">Up to 500. Link/image posts with no text will be skipped automatically.</p>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setIsRedditOpen(false)} disabled={isFetchingReddit}>Cancel</Button>
+                <Button
+                  onClick={handleFetchReddit}
+                  disabled={!redditSubreddit.trim() || isFetchingReddit || bulkCreate.isPending}
+                  className="gap-2 bg-orange-500 hover:bg-orange-600 text-white"
+                >
+                  {isFetchingReddit || bulkCreate.isPending
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <RefreshCw className="h-4 w-4" />}
+                  {isFetchingReddit ? "Fetching…" : bulkCreate.isPending ? "Importing…" : "Fetch & Import"}
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
