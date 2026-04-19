@@ -21,6 +21,12 @@ export const annotationsTable = pgTable("annotations", {
   coderConfidence: integer("coder_confidence").notNull().default(2),
   needsHumanReview: boolean("needs_human_review").notNull().default(false),
   notes: text("notes"),
+  authorOpenness: text("author_openness"),
+  authorIdeology: text("author_ideology"),
+  authorExpertise: text("author_expertise"),
+  authorAffect: text("author_affect"),
+  authorAgreeableness: text("author_agreeableness"),
+  authorNeuroticism: text("author_neuroticism"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

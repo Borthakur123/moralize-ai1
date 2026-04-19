@@ -516,6 +516,24 @@ components:
           description: "Flag for ambiguous, sarcastic, or contradictory texts"
         notes:
           type: ["string", "null"]
+        authorOpenness:
+          type: ["string", "null"]
+          description: "GPT-inferred: low | medium | high | unclear — expressed intellectual curiosity and openness to novelty"
+        authorIdeology:
+          type: ["string", "null"]
+          description: "GPT-inferred: very_liberal | liberal | moderate | conservative | very_conservative | unclear"
+        authorExpertise:
+          type: ["string", "null"]
+          description: "GPT-inferred: none | casual | technical | expert — domain knowledge about AI"
+        authorAffect:
+          type: ["string", "null"]
+          description: "GPT-inferred: positive | negative | neutral | mixed — emotional tone toward AI"
+        authorAgreeableness:
+          type: ["string", "null"]
+          description: "GPT-inferred: low | medium | high | unclear — cooperative vs confrontational tone"
+        authorNeuroticism:
+          type: ["string", "null"]
+          description: "GPT-inferred: low | medium | high | unclear — emotional volatility, anxiety language"
         createdAt:
           type: string
         updatedAt:
@@ -575,6 +593,18 @@ components:
         needsHumanReview:
           type: boolean
         notes:
+          type: ["string", "null"]
+        authorOpenness:
+          type: ["string", "null"]
+        authorIdeology:
+          type: ["string", "null"]
+        authorExpertise:
+          type: ["string", "null"]
+        authorAffect:
+          type: ["string", "null"]
+        authorAgreeableness:
+          type: ["string", "null"]
+        authorNeuroticism:
           type: ["string", "null"]
       required:
         - postId

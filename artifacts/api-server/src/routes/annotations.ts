@@ -35,6 +35,12 @@ const annotationWithCoderName = (coderId?: number, postId?: number) => {
       coderConfidence: annotationsTable.coderConfidence,
       needsHumanReview: annotationsTable.needsHumanReview,
       notes: annotationsTable.notes,
+      authorOpenness: annotationsTable.authorOpenness,
+      authorIdeology: annotationsTable.authorIdeology,
+      authorExpertise: annotationsTable.authorExpertise,
+      authorAffect: annotationsTable.authorAffect,
+      authorAgreeableness: annotationsTable.authorAgreeableness,
+      authorNeuroticism: annotationsTable.authorNeuroticism,
       createdAt: annotationsTable.createdAt,
       updatedAt: annotationsTable.updatedAt,
     })
@@ -92,6 +98,12 @@ router.get("/annotations/export", async (req, res): Promise<void> => {
       coder_confidence: annotationsTable.coderConfidence,
       needs_human_review: annotationsTable.needsHumanReview,
       notes: annotationsTable.notes,
+      author_openness: annotationsTable.authorOpenness,
+      author_ideology: annotationsTable.authorIdeology,
+      author_expertise: annotationsTable.authorExpertise,
+      author_affect: annotationsTable.authorAffect,
+      author_agreeableness: annotationsTable.authorAgreeableness,
+      author_neuroticism: annotationsTable.authorNeuroticism,
       annotated_at: annotationsTable.createdAt,
     })
     .from(annotationsTable)
@@ -107,7 +119,10 @@ router.get("/annotations/export", async (req, res): Promise<void> => {
     "mdmt_reliable", "mdmt_capable", "mdmt_ethical", "mdmt_sincere",
     "uncanny", "social_role", "blame_target", "moral_focus",
     "evidence_quote", "coder_confidence", "needs_human_review",
-    "notes", "annotated_at"
+    "notes",
+    "author_openness", "author_ideology", "author_expertise",
+    "author_affect", "author_agreeableness", "author_neuroticism",
+    "annotated_at"
   ];
 
   const escape = (v: unknown): string => {

@@ -33,7 +33,13 @@ REQUIRED JSON SCHEMA:
   "evidenceQuote": "verbatim span from the text that most strongly justifies the anthropomorphism and moral coding — or empty string",
   "coderConfidence": 1 | 2 | 3,
   "needsHumanReview": true | false,
-  "notes": "1-2 sentences summarising reasoning"
+  "notes": "1-2 sentences summarising reasoning",
+  "authorOpenness": "low" | "medium" | "high" | "unclear",
+  "authorIdeology": "very_liberal" | "liberal" | "moderate" | "conservative" | "very_conservative" | "unclear",
+  "authorExpertise": "none" | "casual" | "technical" | "expert",
+  "authorAffect": "positive" | "negative" | "neutral" | "mixed",
+  "authorAgreeableness": "low" | "medium" | "high" | "unclear",
+  "authorNeuroticism": "low" | "medium" | "high" | "unclear"
 }
 
 FIELD DEFINITIONS:
@@ -94,6 +100,46 @@ fairness, harm, responsibility, deception, dependence, rights, trust, autonomy, 
 
 CODER CONFIDENCE: 1 = low (ambiguous/sarcastic text), 2 = medium, 3 = high (clear evidence)
 NEEDS HUMAN REVIEW: true when text is sarcastic, contradictory, too short, or contains quoted speech that may not reflect author's view
+
+AUTHOR SIGNALS — infer from writing style only. Return "unclear" when the post is too short or topically constrained to support inference:
+
+authorOpenness (Big Five Openness expressed in text):
+- high: rich vocabulary, intellectual curiosity, abstract/nuanced thinking, comfort with uncertainty, explores multiple perspectives
+- medium: some complexity but also concrete or conventional thinking
+- low: black-and-white reasoning, resistance to novelty, preference for simple concrete answers, dismissive of ambiguity
+- unclear: post is too short or topically constrained
+
+authorIdeology (political orientation signalled by framing and language):
+- very_liberal: strong collective rights / social justice framing, deep skepticism of corporations or authority, systemic critique
+- liberal: progressive framing, concern for equality and regulation, pro-oversight
+- moderate: pragmatic or both-sides language, no strong ideological markers
+- conservative: individual responsibility emphasis, pro-market, skepticism of government regulation or "elite" institutions
+- very_conservative: strong populist or traditional values framing, anti-establishment, heavy us-vs-them language
+- unclear: no reliable political cues in the text
+
+authorExpertise (AI/tech domain knowledge):
+- none: no technical language, misuses or avoids AI-specific terms
+- casual: basic tech literacy, uses AI terms correctly but without depth
+- technical: accurate technical vocabulary, discusses training, architecture, limitations, or benchmarks
+- expert: deep domain knowledge, nuanced distinctions, references specific models, papers, or concepts
+
+authorAffect (overall emotional tone toward AI in this post):
+- positive: enthusiastic, optimistic, admiring, hopeful
+- negative: fearful, hostile, angry, dystopian, disappointed
+- neutral: analytical, detached, purely factual
+- mixed: both positive and negative elements; ambivalent
+
+authorAgreeableness (Big Five Agreeableness expressed in tone):
+- high: cooperative, empathetic, seeks common ground, polite hedging, avoids personal attacks
+- medium: balanced, occasionally assertive but not hostile
+- low: confrontational, dismissive, sarcastic, aggressive, contemptuous of other views
+- unclear: insufficient signal
+
+authorNeuroticism (Big Five Neuroticism expressed in emotional register):
+- high: anxiety language, catastrophizing, hyperbolic fears, emotional volatility, urgency
+- medium: some emotional reactivity but generally controlled
+- low: calm, measured, stable emotional tone throughout
+- unclear: insufficient signal
 
 Return ONLY the JSON object.`;
 
@@ -198,6 +244,12 @@ router.post("/annotations/auto-annotate", async (req, res): Promise<void> => {
             coderConfidence: Number(parsed.coderConfidence) || 2,
             needsHumanReview: Boolean(parsed.needsHumanReview),
             notes: parsed.notes ?? null,
+            authorOpenness: parsed.authorOpenness || null,
+            authorIdeology: parsed.authorIdeology || null,
+            authorExpertise: parsed.authorExpertise || null,
+            authorAffect: parsed.authorAffect || null,
+            authorAgreeableness: parsed.authorAgreeableness || null,
+            authorNeuroticism: parsed.authorNeuroticism || null,
           });
 
           completed++;
