@@ -161,8 +161,8 @@ router.post("/annotations/auto-annotate", async (req, res): Promise<void> => {
             .join("\n");
 
           const response = await openai.chat.completions.create({
-            model: "gpt-5-mini",
-            max_completion_tokens: 1024,
+            model: "gpt-4o-mini",
+            max_completion_tokens: 512,
             response_format: { type: "json_object" },
             messages: [
               { role: "system", content: ANNOTATION_PROMPT },
@@ -215,7 +215,7 @@ router.post("/annotations/auto-annotate", async (req, res): Promise<void> => {
           return null;
         }
       },
-      { concurrency: 2, retries: 0 }
+      { concurrency: 5, retries: 1 }
     );
 
     send({ type: "done", annotated: completed, total: posts.length, coderId: aiCoderId });
