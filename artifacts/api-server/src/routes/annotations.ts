@@ -28,6 +28,12 @@ const annotationWithCoderName = (coderId?: number, postId?: number) => {
       mdmtEthical: annotationsTable.mdmtEthical,
       mdmtSincere: annotationsTable.mdmtSincere,
       uncanny: annotationsTable.uncanny,
+      socialRole: annotationsTable.socialRole,
+      blameTarget: annotationsTable.blameTarget,
+      moralFocus: annotationsTable.moralFocus,
+      evidenceQuote: annotationsTable.evidenceQuote,
+      coderConfidence: annotationsTable.coderConfidence,
+      needsHumanReview: annotationsTable.needsHumanReview,
       notes: annotationsTable.notes,
       createdAt: annotationsTable.createdAt,
       updatedAt: annotationsTable.updatedAt,
@@ -79,6 +85,12 @@ router.get("/annotations/export", async (req, res): Promise<void> => {
       mdmt_ethical: annotationsTable.mdmtEthical,
       mdmt_sincere: annotationsTable.mdmtSincere,
       uncanny: annotationsTable.uncanny,
+      social_role: annotationsTable.socialRole,
+      blame_target: annotationsTable.blameTarget,
+      moral_focus: annotationsTable.moralFocus,
+      evidence_quote: annotationsTable.evidenceQuote,
+      coder_confidence: annotationsTable.coderConfidence,
+      needs_human_review: annotationsTable.needsHumanReview,
       notes: annotationsTable.notes,
       annotated_at: annotationsTable.createdAt,
     })
@@ -93,7 +105,9 @@ router.get("/annotations/export", async (req, res): Promise<void> => {
     "coder_id", "coder_name",
     "anthropomorphism_level", "mind_perception", "moral_evaluation",
     "mdmt_reliable", "mdmt_capable", "mdmt_ethical", "mdmt_sincere",
-    "uncanny", "notes", "annotated_at"
+    "uncanny", "social_role", "blame_target", "moral_focus",
+    "evidence_quote", "coder_confidence", "needs_human_review",
+    "notes", "annotated_at"
   ];
 
   const escape = (v: unknown): string => {
@@ -169,6 +183,12 @@ router.get("/annotations/:id", async (req, res): Promise<void> => {
       mdmtEthical: annotationsTable.mdmtEthical,
       mdmtSincere: annotationsTable.mdmtSincere,
       uncanny: annotationsTable.uncanny,
+      socialRole: annotationsTable.socialRole,
+      blameTarget: annotationsTable.blameTarget,
+      moralFocus: annotationsTable.moralFocus,
+      evidenceQuote: annotationsTable.evidenceQuote,
+      coderConfidence: annotationsTable.coderConfidence,
+      needsHumanReview: annotationsTable.needsHumanReview,
       notes: annotationsTable.notes,
       createdAt: annotationsTable.createdAt,
       updatedAt: annotationsTable.updatedAt,

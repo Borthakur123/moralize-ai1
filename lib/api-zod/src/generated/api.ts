@@ -137,6 +137,28 @@ export const GetPostAnnotationsResponseItem = zod.object({
   uncanny: zod
     .string()
     .describe("eerie | creepy | fake-human | unsettling | none"),
+  socialRole: zod
+    .string()
+    .describe(
+      "tool | assistant | companion | authority | manipulator | moral_agent | moral_patient | mixed | unclear",
+    ),
+  blameTarget: zod
+    .string()
+    .describe("AI | developer | deployer | user | mixed | none"),
+  moralFocus: zod
+    .string()
+    .nullish()
+    .describe(
+      "Comma-separated moral issues: fairness, harm, responsibility, deception, dependence, rights, trust, autonomy, dignity, other",
+    ),
+  evidenceQuote: zod
+    .string()
+    .nullish()
+    .describe("Verbatim quote from the text supporting the annotation"),
+  coderConfidence: zod.number().describe("1 low | 2 medium | 3 high"),
+  needsHumanReview: zod
+    .boolean()
+    .describe("Flag for ambiguous, sarcastic, or contradictory texts"),
   notes: zod.string().nullish(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
@@ -180,6 +202,28 @@ export const ListAnnotationsResponseItem = zod.object({
   uncanny: zod
     .string()
     .describe("eerie | creepy | fake-human | unsettling | none"),
+  socialRole: zod
+    .string()
+    .describe(
+      "tool | assistant | companion | authority | manipulator | moral_agent | moral_patient | mixed | unclear",
+    ),
+  blameTarget: zod
+    .string()
+    .describe("AI | developer | deployer | user | mixed | none"),
+  moralFocus: zod
+    .string()
+    .nullish()
+    .describe(
+      "Comma-separated moral issues: fairness, harm, responsibility, deception, dependence, rights, trust, autonomy, dignity, other",
+    ),
+  evidenceQuote: zod
+    .string()
+    .nullish()
+    .describe("Verbatim quote from the text supporting the annotation"),
+  coderConfidence: zod.number().describe("1 low | 2 medium | 3 high"),
+  needsHumanReview: zod
+    .boolean()
+    .describe("Flag for ambiguous, sarcastic, or contradictory texts"),
   notes: zod.string().nullish(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
@@ -200,6 +244,12 @@ export const CreateAnnotationBody = zod.object({
   mdmtEthical: zod.boolean(),
   mdmtSincere: zod.boolean(),
   uncanny: zod.string(),
+  socialRole: zod.string(),
+  blameTarget: zod.string(),
+  moralFocus: zod.string().nullish(),
+  evidenceQuote: zod.string().nullish(),
+  coderConfidence: zod.number().optional(),
+  needsHumanReview: zod.boolean().optional(),
   notes: zod.string().nullish(),
 });
 
@@ -237,6 +287,28 @@ export const GetAnnotationResponse = zod.object({
   uncanny: zod
     .string()
     .describe("eerie | creepy | fake-human | unsettling | none"),
+  socialRole: zod
+    .string()
+    .describe(
+      "tool | assistant | companion | authority | manipulator | moral_agent | moral_patient | mixed | unclear",
+    ),
+  blameTarget: zod
+    .string()
+    .describe("AI | developer | deployer | user | mixed | none"),
+  moralFocus: zod
+    .string()
+    .nullish()
+    .describe(
+      "Comma-separated moral issues: fairness, harm, responsibility, deception, dependence, rights, trust, autonomy, dignity, other",
+    ),
+  evidenceQuote: zod
+    .string()
+    .nullish()
+    .describe("Verbatim quote from the text supporting the annotation"),
+  coderConfidence: zod.number().describe("1 low | 2 medium | 3 high"),
+  needsHumanReview: zod
+    .boolean()
+    .describe("Flag for ambiguous, sarcastic, or contradictory texts"),
   notes: zod.string().nullish(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
@@ -258,6 +330,12 @@ export const UpdateAnnotationBody = zod.object({
   mdmtEthical: zod.boolean().nullish(),
   mdmtSincere: zod.boolean().nullish(),
   uncanny: zod.string().nullish(),
+  socialRole: zod.string().nullish(),
+  blameTarget: zod.string().nullish(),
+  moralFocus: zod.string().nullish(),
+  evidenceQuote: zod.string().nullish(),
+  coderConfidence: zod.number().nullish(),
+  needsHumanReview: zod.boolean().nullish(),
   notes: zod.string().nullish(),
 });
 
@@ -288,6 +366,28 @@ export const UpdateAnnotationResponse = zod.object({
   uncanny: zod
     .string()
     .describe("eerie | creepy | fake-human | unsettling | none"),
+  socialRole: zod
+    .string()
+    .describe(
+      "tool | assistant | companion | authority | manipulator | moral_agent | moral_patient | mixed | unclear",
+    ),
+  blameTarget: zod
+    .string()
+    .describe("AI | developer | deployer | user | mixed | none"),
+  moralFocus: zod
+    .string()
+    .nullish()
+    .describe(
+      "Comma-separated moral issues: fairness, harm, responsibility, deception, dependence, rights, trust, autonomy, dignity, other",
+    ),
+  evidenceQuote: zod
+    .string()
+    .nullish()
+    .describe("Verbatim quote from the text supporting the annotation"),
+  coderConfidence: zod.number().describe("1 low | 2 medium | 3 high"),
+  needsHumanReview: zod
+    .boolean()
+    .describe("Flag for ambiguous, sarcastic, or contradictory texts"),
   notes: zod.string().nullish(),
   createdAt: zod.string(),
   updatedAt: zod.string(),

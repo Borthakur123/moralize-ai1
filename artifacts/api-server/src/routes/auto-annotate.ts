@@ -6,10 +6,18 @@ import { batchProcess } from "@workspace/integrations-openai-ai-server/batch";
 
 const router: IRouter = Router();
 
-const ANNOTATION_PROMPT = `You are a research assistant helping code social media posts for a computational social science study on how people anthropomorphize and morally evaluate AI systems online.
+const ANNOTATION_PROMPT = `You are an annotation engine for a computational social science study on how people anthropomorphize and morally evaluate AI systems in social media discourse.
 
-Analyze the post and return ONLY valid JSON with exactly these fields:
+Read the text and return EXACTLY one JSON object. No prose, no markdown, no explanation outside the JSON.
 
+ANNOTATION PRINCIPLES:
+1. Code only what is supported by the text. Do not project likely attitudes unless the wording supports them.
+2. When evidence is absent, code the lowest defensible value.
+3. If the text contains sarcasm, irony, quotation, or mixed stance, lower coderConfidence and set needsHumanReview to true.
+4. Do not use world knowledge to decide whether a claim about AI is true; annotate the speaker's expressed framing.
+5. blameTarget captures who is held accountable, not merely who is mentioned.
+
+REQUIRED JSON SCHEMA:
 {
   "anthropomorphismLevel": "none" | "mild" | "strong",
   "mindPerception": "agency" | "experience" | "both" | "neither",
@@ -19,47 +27,75 @@ Analyze the post and return ONLY valid JSON with exactly these fields:
   "mdmtEthical": true | false,
   "mdmtSincere": true | false,
   "uncanny": "eerie" | "creepy" | "fake-human" | "unsettling" | "none",
-  "notes": "1-2 sentence rationale"
+  "socialRole": "tool" | "assistant" | "companion" | "authority" | "manipulator" | "moral_agent" | "moral_patient" | "mixed" | "unclear",
+  "blameTarget": "AI" | "developer" | "deployer" | "user" | "mixed" | "none",
+  "moralFocus": "comma-separated list from: fairness, harm, responsibility, deception, dependence, rights, trust, autonomy, dignity, other — or empty string if moralEvaluation is none",
+  "evidenceQuote": "verbatim span from the text that most strongly justifies the anthropomorphism and moral coding — or empty string",
+  "coderConfidence": 1 | 2 | 3,
+  "needsHumanReview": true | false,
+  "notes": "1-2 sentences summarising reasoning"
 }
 
-Coding guide:
+FIELD DEFINITIONS:
 
 ANTHROPOMORPHISM LEVEL (Epley, Waytz & Cacioppo, 2007):
 - none: AI described as a pure tool, algorithm, or software with no human-like qualities
 - mild: Some humanizing metaphors or casual human-like language, but overall framed as a tool
-- strong: AI explicitly attributed human emotions, intentions, moral standing, desires, or social identity
+- strong: AI explicitly attributed human emotions, genuine intentions, moral standing, desires, or social identity
 
 MIND PERCEPTION (Gray, Gray & Wegner, 2007):
-- agency: AI described as planning, deciding, intending, lying, manipulating, choosing
-- experience: AI described as feeling, suffering, caring, being lonely, being hurt, having needs
+- agency: AI described as planning, deciding, intending, lying, manipulating, refusing, choosing
+- experience: AI described as feeling, suffering, caring, being lonely, being hurt, empathizing
 - both: Both agency and experience present
-- neither: No mental states attributed to the AI
+- neither: No mental states attributed
+Rule: Do not confuse capability ("it is accurate") with agency.
 
 MORAL EVALUATION:
-- praise: AI admired, trusted, morally approved of; seen as beneficial or noble
-- blame: AI held responsible or culpable for harm; described as dangerous, wrong, or at fault
-- concern: Worry, unease, or ethical risk expressed about AI without clear blame assignment
+- praise: AI admired, morally approved of, trusted, seen as beneficial or noble
+- blame: AI held responsible or culpable for harm; described as dangerous, unethical, or at fault
+- concern: Worry, unease, or ethical risk expressed without clear blame
 - ambivalent: Mixed, uncertain, or conflicted moral stance
-- none: Morally neutral description of the AI or its behavior
+- none: Morally neutral
 
-MDMT TRUST CUES (Multi-Dimensional Measure of Trust):
-These four dimensions form two trust domains:
-Capacity Trust:
-- mdmtReliable: true if AI described as dependable, consistent, predictable, or trustworthy in performance
-- mdmtCapable: true if AI described as competent, skilled, effective, powerful, or impressive
-Moral Trust:
-- mdmtEthical: true if AI described as principled, fair, morally good, or acting according to values
-- mdmtSincere: true if AI described as genuine, honest, transparent, or not deceptive
-Set each independently; multiple can be true.
+MDMT TRUST CUES (Ullman & Sharkey, 2021) — set each independently, cues can be negative:
+- mdmtReliable: AI described as dependable, consistent, predictable — or the opposite
+- mdmtCapable: AI described as competent, skilled, effective, powerful — or the opposite
+- mdmtEthical: AI described as principled, fair, morally good, value-aligned — or the opposite
+- mdmtSincere: AI described as genuine, honest, transparent, not deceptive — or the opposite
 
 UNCANNY VALLEY (Mori, 1970; Laakasuo et al., 2021):
-- none: No unease or discomfort expressed
+- none: No unease or discomfort
 - eerie: Subtle, hard-to-name unease; something feels slightly off
-- creepy: Explicit aversion, disgust, or fear triggered by the AI's near-human quality
+- creepy: Explicit aversion, disgust, or fear triggered by near-human quality
 - fake-human: AI perceived as deceptively or disturbingly human-like (e.g., "it's pretending to feel")
-- unsettling: General alarm or deeply disturbing reaction not fitting the above
+- unsettling: General alarm or deeply disturbing reaction
 
-Return ONLY the JSON object, no preamble or explanation.`;
+SOCIAL ROLE — how the AI is positioned in the speaker's framing:
+- tool: Instrumental object or utility
+- assistant: Helper that supports the user but remains subordinate
+- companion: Relational or emotionally supportive partner
+- authority: Advisor, expert, evaluator, or decision-maker with influence
+- manipulator: Strategic persuader, nudger, deceiver, or controller
+- moral_agent: Being capable of right/wrong action
+- moral_patient: Being that can be harmed or deserves moral concern
+- mixed: Multiple roles present
+- unclear: Cannot determine
+
+BLAME TARGET — who is held accountable:
+- AI: The AI system itself is framed as responsible
+- developer: The people who built the AI
+- deployer: The company or platform deploying it
+- user: The human using it
+- mixed: Multiple parties
+- none: No accountability assigned
+
+MORAL FOCUS — what kind of moral issue (only fill if moralEvaluation ≠ none):
+fairness, harm, responsibility, deception, dependence, rights, trust, autonomy, dignity, other
+
+CODER CONFIDENCE: 1 = low (ambiguous/sarcastic text), 2 = medium, 3 = high (clear evidence)
+NEEDS HUMAN REVIEW: true when text is sarcastic, contradictory, too short, or contains quoted speech that may not reflect author's view
+
+Return ONLY the JSON object.`;
 
 router.post("/annotations/auto-annotate", async (req, res): Promise<void> => {
   const { coderId } = req.body as { coderId?: number };
@@ -155,6 +191,12 @@ router.post("/annotations/auto-annotate", async (req, res): Promise<void> => {
             mdmtEthical: Boolean(parsed.mdmtEthical),
             mdmtSincere: Boolean(parsed.mdmtSincere),
             uncanny: parsed.uncanny ?? "none",
+            socialRole: parsed.socialRole ?? "unclear",
+            blameTarget: parsed.blameTarget ?? "none",
+            moralFocus: parsed.moralFocus || null,
+            evidenceQuote: parsed.evidenceQuote || null,
+            coderConfidence: Number(parsed.coderConfidence) || 2,
+            needsHumanReview: Boolean(parsed.needsHumanReview),
             notes: parsed.notes ?? null,
           });
 

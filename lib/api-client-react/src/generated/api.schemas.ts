@@ -78,6 +78,24 @@ export interface Annotation {
   mdmtSincere: boolean;
   /** eerie | creepy | fake-human | unsettling | none */
   uncanny: string;
+  /** tool | assistant | companion | authority | manipulator | moral_agent | moral_patient | mixed | unclear */
+  socialRole: string;
+  /** AI | developer | deployer | user | mixed | none */
+  blameTarget: string;
+  /**
+   * Comma-separated moral issues: fairness, harm, responsibility, deception, dependence, rights, trust, autonomy, dignity, other
+   * @nullable
+   */
+  moralFocus?: string | null;
+  /**
+   * Verbatim quote from the text supporting the annotation
+   * @nullable
+   */
+  evidenceQuote?: string | null;
+  /** 1 low | 2 medium | 3 high */
+  coderConfidence: number;
+  /** Flag for ambiguous, sarcastic, or contradictory texts */
+  needsHumanReview: boolean;
   /** @nullable */
   notes?: string | null;
   createdAt: string;
@@ -95,6 +113,14 @@ export interface CreateAnnotationBody {
   mdmtEthical: boolean;
   mdmtSincere: boolean;
   uncanny: string;
+  socialRole: string;
+  blameTarget: string;
+  /** @nullable */
+  moralFocus?: string | null;
+  /** @nullable */
+  evidenceQuote?: string | null;
+  coderConfidence?: number;
+  needsHumanReview?: boolean;
   /** @nullable */
   notes?: string | null;
 }
@@ -116,6 +142,18 @@ export interface UpdateAnnotationBody {
   mdmtSincere?: boolean | null;
   /** @nullable */
   uncanny?: string | null;
+  /** @nullable */
+  socialRole?: string | null;
+  /** @nullable */
+  blameTarget?: string | null;
+  /** @nullable */
+  moralFocus?: string | null;
+  /** @nullable */
+  evidenceQuote?: string | null;
+  /** @nullable */
+  coderConfidence?: number | null;
+  /** @nullable */
+  needsHumanReview?: boolean | null;
   /** @nullable */
   notes?: string | null;
 }

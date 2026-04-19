@@ -496,6 +496,24 @@ components:
         uncanny:
           type: string
           description: "eerie | creepy | fake-human | unsettling | none"
+        socialRole:
+          type: string
+          description: "tool | assistant | companion | authority | manipulator | moral_agent | moral_patient | mixed | unclear"
+        blameTarget:
+          type: string
+          description: "AI | developer | deployer | user | mixed | none"
+        moralFocus:
+          type: ["string", "null"]
+          description: "Comma-separated moral issues: fairness, harm, responsibility, deception, dependence, rights, trust, autonomy, dignity, other"
+        evidenceQuote:
+          type: ["string", "null"]
+          description: "Verbatim quote from the text supporting the annotation"
+        coderConfidence:
+          type: integer
+          description: "1 low | 2 medium | 3 high"
+        needsHumanReview:
+          type: boolean
+          description: "Flag for ambiguous, sarcastic, or contradictory texts"
         notes:
           type: ["string", "null"]
         createdAt:
@@ -514,6 +532,10 @@ components:
         - mdmtEthical
         - mdmtSincere
         - uncanny
+        - socialRole
+        - blameTarget
+        - coderConfidence
+        - needsHumanReview
         - createdAt
         - updatedAt
 
@@ -540,6 +562,18 @@ components:
           type: boolean
         uncanny:
           type: string
+        socialRole:
+          type: string
+        blameTarget:
+          type: string
+        moralFocus:
+          type: ["string", "null"]
+        evidenceQuote:
+          type: ["string", "null"]
+        coderConfidence:
+          type: integer
+        needsHumanReview:
+          type: boolean
         notes:
           type: ["string", "null"]
       required:
@@ -553,6 +587,8 @@ components:
         - mdmtEthical
         - mdmtSincere
         - uncanny
+        - socialRole
+        - blameTarget
 
     UpdateAnnotationBody:
       type: object
@@ -573,6 +609,18 @@ components:
           type: ["boolean", "null"]
         uncanny:
           type: ["string", "null"]
+        socialRole:
+          type: ["string", "null"]
+        blameTarget:
+          type: ["string", "null"]
+        moralFocus:
+          type: ["string", "null"]
+        evidenceQuote:
+          type: ["string", "null"]
+        coderConfidence:
+          type: ["integer", "null"]
+        needsHumanReview:
+          type: ["boolean", "null"]
         notes:
           type: ["string", "null"]
 

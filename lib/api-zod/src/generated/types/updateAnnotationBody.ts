@@ -24,5 +24,17 @@ export interface UpdateAnnotationBody {
   /** @nullable */
   uncanny?: string | null;
   /** @nullable */
+  socialRole?: string | null;
+  /** @nullable */
+  blameTarget?: string | null;
+  /** @nullable */
+  moralFocus?: string | null;
+  /** @nullable */
+  evidenceQuote?: string | null;
+  /** @nullable */
+  coderConfidence?: number | null;
+  /** @nullable */
+  needsHumanReview?: boolean | null;
+  /** @nullable */
   notes?: string | null;
 }

@@ -39,6 +39,16 @@ const formSchema = z.object({
   uncanny: z.enum(["eerie", "creepy", "fake-human", "unsettling", "none"], {
     required_error: "Please select an uncanny valley response.",
   }),
+  socialRole: z.enum(["tool", "assistant", "companion", "authority", "manipulator", "moral_agent", "moral_patient", "mixed", "unclear"], {
+    required_error: "Please select a social role.",
+  }),
+  blameTarget: z.enum(["AI", "developer", "deployer", "user", "mixed", "none"], {
+    required_error: "Please select a blame target.",
+  }),
+  moralFocus: z.string().optional(),
+  evidenceQuote: z.string().optional(),
+  coderConfidence: z.enum(["1", "2", "3"]).default("2"),
+  needsHumanReview: z.boolean().default(false),
   notes: z.string().optional(),
 });
 
@@ -76,6 +86,10 @@ export default function Annotate() {
       mdmtCapable: false,
       mdmtEthical: false,
       mdmtSincere: false,
+      needsHumanReview: false,
+      coderConfidence: "2",
+      moralFocus: "",
+      evidenceQuote: "",
       notes: "",
     },
   });
@@ -91,6 +105,12 @@ export default function Annotate() {
         mdmtEthical: false,
         mdmtSincere: false,
         uncanny: undefined as any,
+        socialRole: undefined as any,
+        blameTarget: undefined as any,
+        moralFocus: "",
+        evidenceQuote: "",
+        coderConfidence: "2",
+        needsHumanReview: false,
         notes: "",
       });
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -105,6 +125,7 @@ export default function Annotate() {
         postId: post.id,
         coderId: coderId,
         ...values,
+        coderConfidence: Number(values.coderConfidence),
       }
     }, {
       onSuccess: () => {
@@ -458,6 +479,152 @@ export default function Annotate() {
                       </FormItem>
                     )}
                   />
+
+                  {/* Dimension 6: Social Role */}
+                  <FormField
+                    control={form.control}
+                    name="socialRole"
+                    render={({ field }) => (
+                      <FormItem className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <FormLabel className="text-base">6. Social Role of AI</FormLabel>
+                          <Tooltip>
+                            <TooltipTrigger asChild><AlertCircle className="h-4 w-4 text-muted-foreground" /></TooltipTrigger>
+                            <TooltipContent><p className="w-[250px]">How is the AI socially positioned in the speaker's framing — not the objective product category.</p></TooltipContent>
+                          </Tooltip>
+                        </div>
+                        <FormControl>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <SelectTrigger className="w-full bg-card"><SelectValue placeholder="Select social role..." /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="tool">Tool (Instrumental object or utility)</SelectItem>
+                              <SelectItem value="assistant">Assistant (Helpful but subordinate)</SelectItem>
+                              <SelectItem value="companion">Companion (Relational, emotionally supportive)</SelectItem>
+                              <SelectItem value="authority">Authority (Expert, advisor, decision-maker)</SelectItem>
+                              <SelectItem value="manipulator">Manipulator (Strategic persuader, deceiver)</SelectItem>
+                              <SelectItem value="moral_agent">Moral Agent (Capable of right/wrong action)</SelectItem>
+                              <SelectItem value="moral_patient">Moral Patient (Can be harmed, deserves concern)</SelectItem>
+                              <SelectItem value="mixed">Mixed (Multiple roles)</SelectItem>
+                              <SelectItem value="unclear">Unclear</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Dimension 7: Blame Target */}
+                  <FormField
+                    control={form.control}
+                    name="blameTarget"
+                    render={({ field }) => (
+                      <FormItem className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <FormLabel className="text-base">7. Blame / Accountability Target</FormLabel>
+                          <Tooltip>
+                            <TooltipTrigger asChild><AlertCircle className="h-4 w-4 text-muted-foreground" /></TooltipTrigger>
+                            <TooltipContent><p className="w-[240px]">Who is held accountable in the post — not merely who is mentioned.</p></TooltipContent>
+                          </Tooltip>
+                        </div>
+                        <FormControl>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <SelectTrigger className="w-full bg-card"><SelectValue placeholder="Select blame target..." /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">None (No accountability assigned)</SelectItem>
+                              <SelectItem value="AI">AI system itself</SelectItem>
+                              <SelectItem value="developer">Developer (who built it)</SelectItem>
+                              <SelectItem value="deployer">Deployer / Company (platform)</SelectItem>
+                              <SelectItem value="user">User (the person using it)</SelectItem>
+                              <SelectItem value="mixed">Mixed (multiple parties)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Moral Focus */}
+                  <FormField
+                    control={form.control}
+                    name="moralFocus"
+                    render={({ field }) => (
+                      <FormItem>
+                        <div className="flex items-center justify-between">
+                          <FormLabel className="text-base">Moral Issue(s) <span className="font-normal text-muted-foreground text-sm">(optional)</span></FormLabel>
+                          <Tooltip>
+                            <TooltipTrigger asChild><AlertCircle className="h-4 w-4 text-muted-foreground" /></TooltipTrigger>
+                            <TooltipContent><p className="w-[260px]">What moral issue(s) does the post invoke? Comma-separate if multiple.</p></TooltipContent>
+                          </Tooltip>
+                        </div>
+                        <FormControl>
+                          <input
+                            className="flex h-9 w-full rounded-md border border-input bg-card px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            placeholder="e.g. harm, deception, autonomy"
+                            {...field}
+                          />
+                        </FormControl>
+                        <p className="text-xs text-muted-foreground">Options: fairness, harm, responsibility, deception, dependence, rights, trust, autonomy, dignity, other</p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Evidence Quote */}
+                  <FormField
+                    control={form.control}
+                    name="evidenceQuote"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-base">Evidence Quote <span className="font-normal text-muted-foreground text-sm">(optional)</span></FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Paste a verbatim quote from the post that best supports your coding..."
+                            className="resize-none h-16 bg-card"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Coder Confidence + Needs Review */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="coderConfidence"
+                      render={({ field }) => (
+                        <FormItem className="space-y-2">
+                          <FormLabel className="text-base">Coding Confidence</FormLabel>
+                          <FormControl>
+                            <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-2">
+                              {[["1","Low"],["2","Med"],["3","High"]].map(([v,label]) => (
+                                <FormItem key={v} className="flex items-center space-x-1 space-y-0">
+                                  <FormControl><RadioGroupItem value={v} /></FormControl>
+                                  <FormLabel className="font-normal cursor-pointer">{label}</FormLabel>
+                                </FormItem>
+                              ))}
+                            </RadioGroup>
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="needsHumanReview"
+                      render={({ field }) => (
+                        <FormItem className="space-y-2">
+                          <FormLabel className="text-base">Flag for Review</FormLabel>
+                          <FormItem className="flex items-center space-x-3 space-y-0 pt-1">
+                            <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                            <FormLabel className="font-normal cursor-pointer text-sm">Ambiguous / needs human check</FormLabel>
+                          </FormItem>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
                   {/* Notes */}
                   <FormField

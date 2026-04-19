@@ -17,6 +17,14 @@ export interface CreateAnnotationBody {
   mdmtEthical: boolean;
   mdmtSincere: boolean;
   uncanny: string;
+  socialRole: string;
+  blameTarget: string;
+  /** @nullable */
+  moralFocus?: string | null;
+  /** @nullable */
+  evidenceQuote?: string | null;
+  coderConfidence?: number;
+  needsHumanReview?: boolean;
   /** @nullable */
   notes?: string | null;
 }
