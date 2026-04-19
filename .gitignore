@@ -47,3 +47,14 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+.replit
+replit.nix
+
+# Research working documents (not for public repo)
+attached_assets/
+*.docx
+
+# Environment variables
+.env
+.env.local
+.env.*.local
