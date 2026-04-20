@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, sql, and, isNull, or } from "drizzle-orm";
-import { db, postsTable, annotationsTable } from "@workspace/db";
+import { db, postsTable, annotationsTable, codersTable } from "@workspace/db";
 import {
   ListPostsQueryParams,
   CreatePostBody,
@@ -283,6 +283,20 @@ router.post("/posts/fetch-reddit", async (req, res): Promise<void> => {
   } catch (err) {
     res.status(502).json({ error: `Failed to fetch from Reddit: ${String(err)}` });
   }
+});
+
+router.post("/posts/claim-legacy", async (req: AuthRequest, res): Promise<void> => {
+  if (!req.isAdmin) {
+    res.status(403).json({ error: "Admin only" });
+    return;
+  }
+  const uid = req.userId!;
+  const [p, c, a] = await Promise.all([
+    db.update(postsTable).set({ userId: uid }).where(isNull(postsTable.userId)).returning({ id: postsTable.id }),
+    db.update(codersTable).set({ userId: uid }).where(isNull(codersTable.userId)).returning({ id: codersTable.id }),
+    db.update(annotationsTable).set({ userId: uid }).where(isNull(annotationsTable.userId)).returning({ id: annotationsTable.id }),
+  ]);
+  res.json({ posts: p.length, coders: c.length, annotations: a.length });
 });
 
 router.delete("/posts/all", async (req: AuthRequest, res): Promise<void> => {

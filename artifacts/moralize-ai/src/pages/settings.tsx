@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Save, RotateCcw } from "lucide-react";
+import { Save, RotateCcw, DatabaseZap } from "lucide-react";
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -89,6 +89,7 @@ export default function Settings() {
   const [customPrompt, setCustomPrompt] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [claiming, setClaiming] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -119,6 +120,27 @@ export default function Settings() {
   const resetToDefault = () => {
     setSelectedFields(new Set(DEFAULT_FIELDS));
     setCustomPrompt("");
+  };
+
+  const claimLegacyData = async () => {
+    setClaiming(true);
+    try {
+      const resp = await fetch(`${base}/api/posts/claim-legacy`, { method: "POST" });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({})) as { error?: string };
+        toast({ title: "Claim failed", description: err.error ?? "Server error", variant: "destructive" });
+        return;
+      }
+      const result = await resp.json() as { posts: number; coders: number; annotations: number };
+      toast({
+        title: "Legacy data claimed",
+        description: `Linked ${result.posts} posts, ${result.coders} coders, and ${result.annotations} annotations to your account.`,
+      });
+    } catch {
+      toast({ title: "Claim failed", variant: "destructive" });
+    } finally {
+      setClaiming(false);
+    }
   };
 
   const save = async () => {
@@ -208,6 +230,25 @@ export default function Settings() {
               ? `Custom prompt active (${customPrompt.trim().length} characters). The JSON schema for selected dimensions will be appended automatically.`
               : "Using the default MoralizeAI annotation prompt."}
           </p>
+        </CardContent>
+      </Card>
+
+      <Separator />
+
+      <Card className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/20">
+        <CardHeader>
+          <CardTitle className="text-amber-800 dark:text-amber-400">Claim Legacy Data</CardTitle>
+          <CardDescription>
+            If you had posts, coders, or annotations in the database before user accounts were added,
+            click below to permanently link all of that data to your account. Safe to run more than once —
+            it only affects unowned rows.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button onClick={claimLegacyData} disabled={claiming} variant="outline" className="gap-2 border-amber-400 text-amber-800 hover:bg-amber-100 dark:text-amber-400 dark:hover:bg-amber-900/40">
+            <DatabaseZap className="h-4 w-4" />
+            {claiming ? "Claiming…" : "Claim My Legacy Data"}
+          </Button>
         </CardContent>
       </Card>
 
