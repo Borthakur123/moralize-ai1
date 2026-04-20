@@ -246,46 +246,44 @@ router.post("/posts/fetch-reddit", async (req, res): Promise<void> => {
   const maxPosts = Math.min(Number(limit) || 100, 500);
   const batchSize = 100;
   const allPosts: Record<string, unknown>[] = [];
-  let after: string | null = null;
+  let before: number | null = null;
 
   try {
     while (allPosts.length < maxPosts) {
-      const remaining = maxPosts - allPosts.length;
-      const fetchCount = Math.min(batchSize, remaining);
+      const fetchCount = Math.min(batchSize, maxPosts - allPosts.length);
 
-      let url: string;
-      if (searchQuery) {
-        url = `https://www.reddit.com/r/${encodeURIComponent(subreddit)}/search.json?q=${encodeURIComponent(searchQuery)}&restrict_sr=1&sort=new&limit=${fetchCount}`;
-      } else {
-        url = `https://www.reddit.com/r/${encodeURIComponent(subreddit)}/new.json?limit=${fetchCount}`;
-      }
-      if (after) url += `&after=${after}`;
+      const params = new URLSearchParams({
+        subreddit,
+        size: String(fetchCount),
+        sort: "desc",
+        sort_type: "created_utc",
+      });
+      if (searchQuery) params.set("q", searchQuery);
+      if (before !== null) params.set("before", String(before));
 
-      const response = await fetch(url, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-          "Accept": "application/json, text/plain, */*",
-          "Accept-Language": "en-US,en;q=0.9",
-        },
+      const response = await fetch(`https://api.pullpush.io/reddit/search/submission/?${params}`, {
+        headers: { "User-Agent": "MoralizeAI/1.0 research tool" },
+        signal: AbortSignal.timeout(20000),
       });
 
       if (!response.ok) {
-        res.status(502).json({ error: `Reddit returned ${response.status}` });
+        res.status(502).json({ error: `Reddit archive returned ${response.status}` });
         return;
       }
 
-      const json = await response.json() as { data?: { children?: { kind: string; data: Record<string, unknown> }[]; after?: string | null } };
-      const children = json?.data?.children ?? [];
-      const posts = children.filter(c => c.kind === "t3").map(c => c.data);
+      const json = await response.json() as { data?: Record<string, unknown>[] };
+      const posts = json?.data ?? [];
       allPosts.push(...posts);
-      after = json?.data?.after ?? null;
 
-      if (!after || posts.length === 0) break;
+      if (posts.length < fetchCount) break;
+      const oldest = posts[posts.length - 1] as { created_utc?: number };
+      before = oldest.created_utc ?? null;
+      if (before === null) break;
     }
 
     res.json({ posts: allPosts.slice(0, maxPosts) });
   } catch (err) {
-    res.status(502).json({ error: `Failed to fetch from Reddit: ${String(err)}` });
+    res.status(502).json({ error: `Failed to fetch posts: ${String(err)}` });
   }
 });
 

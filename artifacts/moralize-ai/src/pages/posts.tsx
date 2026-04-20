@@ -62,19 +62,19 @@ export default function Posts() {
     // Already in our format
     if (typeof p.content === "string") return p;
 
-    const selftext = (p.selftext ?? p.body ?? "") as string;
+    const selftextRaw = p.selftext ?? p.body;
+    const selftext = typeof selftextRaw === "string" ? selftextRaw : "";
     const title = (p.title ?? "") as string;
     const author = (p.author ?? p.author_fullname ?? "") as string;
     const subreddit = (p.subreddit ?? p.subreddit_name_prefixed?.toString().replace(/^r\//, "") ?? "") as string;
     const permalink = p.permalink as string | undefined;
     const rawUrl = p.url as string | undefined;
-    // Prefer permalink-derived URL (always a post link); fall back to raw URL only if it looks like a post
     const url = permalink
       ? `https://www.reddit.com${permalink}`
       : rawUrl ?? "";
     const createdUtc = p.created_utc as number | undefined;
 
-    const contentText = selftext.toString().trim() || title.toString().trim();
+    const contentText = selftext.trim() || title.toString().trim();
 
     return {
       platform: "reddit",
@@ -269,35 +269,20 @@ export default function Posts() {
     try {
       const sub = redditSubreddit.trim();
       const maxPosts = Math.min(Number(redditLimit) || 100, 500);
-      const batchSize = 100;
-      const allRaw: Record<string, unknown>[] = [];
-      let after: string | null = null;
 
-      while (allRaw.length < maxPosts) {
-        const remaining = maxPosts - allRaw.length;
-        const fetchCount = Math.min(batchSize, remaining);
-        let url: string;
-        if (redditQuery.trim()) {
-          url = `https://www.reddit.com/r/${encodeURIComponent(sub)}/search.json?q=${encodeURIComponent(redditQuery.trim())}&restrict_sr=1&sort=new&limit=${fetchCount}`;
-        } else {
-          url = `https://www.reddit.com/r/${encodeURIComponent(sub)}/new.json?limit=${fetchCount}`;
-        }
-        if (after) url += `&after=${after}`;
-
-        const resp = await fetch(url, { headers: { "Accept": "application/json" } });
-        if (!resp.ok) {
-          toast({ variant: "destructive", title: "Fetch failed", description: `Reddit returned ${resp.status}. Check the subreddit name is correct and public.` });
-          return;
-        }
-        const json = await resp.json() as { data?: { children?: { kind: string; data: Record<string, unknown> }[]; after?: string | null } };
-        const children = json?.data?.children ?? [];
-        const posts = children.filter(c => c.kind === "t3").map(c => c.data);
-        allRaw.push(...posts);
-        after = json?.data?.after ?? null;
-        if (!after || posts.length === 0) break;
+      const resp = await fetch("/api/posts/fetch-reddit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subreddit: sub, limit: maxPosts, searchQuery: redditQuery.trim() || undefined }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({})) as { error?: string };
+        toast({ variant: "destructive", title: "Fetch failed", description: err.error ?? `Server error ${resp.status}` });
+        return;
       }
+      const { posts: allRaw } = await resp.json() as { posts: Record<string, unknown>[] };
 
-      const postsArray = allRaw.slice(0, maxPosts).map(normalizeRedditPost);
+      const postsArray = allRaw.map(normalizeRedditPost);
       const emptyCount = postsArray.filter(p => p._empty).length;
       const validPosts = postsArray.filter(p => !p._empty).map(({ _empty, ...rest }) => rest);
 
