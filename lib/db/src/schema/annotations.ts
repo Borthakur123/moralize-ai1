@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 
 export const annotationsTable = pgTable("annotations", {
   id: serial("id").primaryKey(),
+  userId: text("user_id"),
   postId: integer("post_id").notNull(),
   coderId: integer("coder_id").notNull(),
   anthropomorphismLevel: text("anthropomorphism_level").notNull().default("none"),

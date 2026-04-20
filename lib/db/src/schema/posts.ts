@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 
 export const postsTable = pgTable("posts", {
   id: serial("id").primaryKey(),
+  userId: text("user_id"),
   externalId: text("external_id"),
   platform: text("platform").notNull().default("reddit"),
   subreddit: text("subreddit"),
