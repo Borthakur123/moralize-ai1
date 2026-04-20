@@ -7,6 +7,7 @@ import {
   ListChecks, 
   Users, 
   BarChart,
+  Settings,
   Menu,
   LogOut,
 } from "lucide-react";
@@ -31,6 +32,7 @@ const navigation = [
   { name: "Annotations", href: "/annotations", icon: ListChecks },
   { name: "Coders", href: "/coders", icon: Users },
   { name: "Agreement", href: "/agreement", icon: BarChart },
+  { name: "Settings", href: "/settings", icon: Settings },
 ];
 
 function UserMenu() {

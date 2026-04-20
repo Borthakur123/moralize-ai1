@@ -6,6 +6,7 @@ import codersRouter from "./coders";
 import annotationsRouter from "./annotations";
 import statsRouter from "./stats";
 import autoAnnotateRouter from "./auto-annotate";
+import settingsRouter from "./settings";
 
 const router: IRouter = Router();
 
@@ -15,5 +16,6 @@ router.use(requireAuth as any, codersRouter);
 router.use(requireAuth as any, annotationsRouter);
 router.use(requireAuth as any, statsRouter);
 router.use(requireAuth as any, autoAnnotateRouter);
+router.use(requireAuth as any, settingsRouter);
 
 export default router;

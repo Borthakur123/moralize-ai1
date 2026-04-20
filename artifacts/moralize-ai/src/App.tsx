@@ -12,6 +12,7 @@ import Posts from "@/pages/posts";
 import Annotations from "@/pages/annotations";
 import Coders from "@/pages/coders";
 import Agreement from "@/pages/agreement";
+import SettingsPage from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 import SignInPage from "@/pages/sign-in";
 import SignUpPage from "@/pages/sign-up";
@@ -69,6 +70,7 @@ function Router() {
       <Route path="/annotations" component={() => <ProtectedRoute component={Annotations} />} />
       <Route path="/coders" component={() => <ProtectedRoute component={Coders} />} />
       <Route path="/agreement" component={() => <ProtectedRoute component={Agreement} />} />
+      <Route path="/settings" component={() => <ProtectedRoute component={SettingsPage} />} />
       <Route path="/sign-in/*?" component={SignInPage} />
       <Route path="/sign-up/*?" component={SignUpPage} />
       <Route component={NotFound} />

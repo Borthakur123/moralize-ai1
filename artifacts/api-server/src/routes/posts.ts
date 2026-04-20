@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, sql, and, isNull, notInArray } from "drizzle-orm";
+import { eq, sql, and, isNull, or } from "drizzle-orm";
 import { db, postsTable, annotationsTable } from "@workspace/db";
 import {
   ListPostsQueryParams,
@@ -14,7 +14,21 @@ import type { AuthRequest } from "../middlewares/requireAuth";
 const router: IRouter = Router();
 const FREE_POST_LIMIT = 500;
 
-router.get("/posts", async (req, res): Promise<void> => {
+function postUserWhere(req: AuthRequest) {
+  if (req.isAdmin) {
+    return or(eq(postsTable.userId, req.userId!), isNull(postsTable.userId));
+  }
+  return eq(postsTable.userId, req.userId!);
+}
+
+function annotationUserWhere(req: AuthRequest) {
+  if (req.isAdmin) {
+    return or(eq(annotationsTable.userId, req.userId!), isNull(annotationsTable.userId));
+  }
+  return eq(annotationsTable.userId, req.userId!);
+}
+
+router.get("/posts", async (req: AuthRequest, res): Promise<void> => {
   const parsed = ListPostsQueryParams.safeParse(req.query);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -26,8 +40,11 @@ router.get("/posts", async (req, res): Promise<void> => {
   const countSq = db
     .select({ postId: annotationsTable.postId, cnt: sql<number>`count(*)`.as("cnt") })
     .from(annotationsTable)
+    .where(annotationUserWhere(req))
     .groupBy(annotationsTable.postId)
     .as("annotation_counts");
+
+  const baseWhere = postUserWhere(req);
 
   let query = db
     .select({
@@ -45,16 +62,17 @@ router.get("/posts", async (req, res): Promise<void> => {
     })
     .from(postsTable)
     .leftJoin(countSq, eq(postsTable.id, countSq.postId))
+    .where(baseWhere)
     .$dynamic();
 
   if (subreddit) {
-    query = query.where(eq(postsTable.subreddit, subreddit));
+    query = query.where(and(baseWhere, eq(postsTable.subreddit, subreddit)));
   }
 
   if (annotated === "yes") {
-    query = query.where(sql`coalesce(${countSq.cnt}, 0) > 0`);
+    query = query.where(and(baseWhere, sql`coalesce(${countSq.cnt}, 0) > 0`));
   } else if (annotated === "no") {
-    query = query.where(sql`coalesce(${countSq.cnt}, 0) = 0`);
+    query = query.where(and(baseWhere, sql`coalesce(${countSq.cnt}, 0) = 0`));
   }
 
   if (limit != null) {
@@ -68,14 +86,14 @@ router.get("/posts", async (req, res): Promise<void> => {
   res.json(posts.map((p) => ({ ...p, annotationCount: Number(p.annotationCount) })));
 });
 
-router.post("/posts", async (req, res): Promise<void> => {
+router.post("/posts", async (req: AuthRequest, res): Promise<void> => {
   const parsed = CreatePostBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
 
-  const [post] = await db.insert(postsTable).values(parsed.data).returning();
+  const [post] = await db.insert(postsTable).values({ ...parsed.data, userId: req.userId }).returning();
   res.status(201).json({ ...post, annotationCount: 0 });
 });
 
@@ -87,7 +105,10 @@ router.post("/posts/bulk", async (req: AuthRequest, res): Promise<void> => {
   }
 
   if (!req.isAdmin) {
-    const [countRow] = await db.select({ count: sql<number>`count(*)` }).from(postsTable);
+    const [countRow] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(postsTable)
+      .where(postUserWhere(req));
     const currentCount = Number(countRow?.count ?? 0);
     if (currentCount >= FREE_POST_LIMIT) {
       res.status(403).json({
@@ -105,7 +126,10 @@ router.post("/posts/bulk", async (req: AuthRequest, res): Promise<void> => {
 
   for (const postData of parsed.data.posts) {
     if (!req.isAdmin) {
-      const [countRow] = await db.select({ count: sql<number>`count(*)` }).from(postsTable);
+      const [countRow] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(postsTable)
+        .where(postUserWhere(req));
       if (Number(countRow?.count ?? 0) >= FREE_POST_LIMIT) {
         skipped += parsed.data.posts.length - imported - skipped;
         break;
@@ -116,21 +140,21 @@ router.post("/posts/bulk", async (req: AuthRequest, res): Promise<void> => {
       const existing = await db
         .select({ id: postsTable.id })
         .from(postsTable)
-        .where(eq(postsTable.externalId, postData.externalId))
+        .where(and(postUserWhere(req), eq(postsTable.externalId, postData.externalId)))
         .limit(1);
       if (existing.length > 0) {
         skipped++;
         continue;
       }
     }
-    await db.insert(postsTable).values(postData);
+    await db.insert(postsTable).values({ ...postData, userId: req.userId });
     imported++;
   }
 
   res.status(201).json({ imported, skipped, total: parsed.data.posts.length });
 });
 
-router.get("/posts/next-to-annotate", async (req, res): Promise<void> => {
+router.get("/posts/next-to-annotate", async (req: AuthRequest, res): Promise<void> => {
   const parsed = GetNextPostToAnnotateQueryParams.safeParse(req.query);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -158,9 +182,7 @@ router.get("/posts/next-to-annotate", async (req, res): Promise<void> => {
       createdAt: postsTable.createdAt,
     })
     .from(postsTable)
-    .where(
-      sql`${postsTable.id} NOT IN (${alreadyAnnotated})`
-    )
+    .where(and(postUserWhere(req), sql`${postsTable.id} NOT IN (${alreadyAnnotated})`))
     .orderBy(postsTable.id)
     .limit(1);
 
@@ -172,7 +194,7 @@ router.get("/posts/next-to-annotate", async (req, res): Promise<void> => {
   res.json({ ...post, annotationCount: 0 });
 });
 
-router.get("/posts/:id", async (req, res): Promise<void> => {
+router.get("/posts/:id", async (req: AuthRequest, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = GetPostParams.safeParse({ id: raw });
   if (!params.success) {
@@ -183,7 +205,7 @@ router.get("/posts/:id", async (req, res): Promise<void> => {
   const countSq = db
     .select({ postId: annotationsTable.postId, cnt: sql<number>`count(*)`.as("cnt") })
     .from(annotationsTable)
-    .where(eq(annotationsTable.postId, params.data.id))
+    .where(and(annotationUserWhere(req), eq(annotationsTable.postId, params.data.id)))
     .groupBy(annotationsTable.postId)
     .as("ac");
 
@@ -203,7 +225,7 @@ router.get("/posts/:id", async (req, res): Promise<void> => {
     })
     .from(postsTable)
     .leftJoin(countSq, eq(postsTable.id, countSq.postId))
-    .where(eq(postsTable.id, params.data.id));
+    .where(and(postUserWhere(req), eq(postsTable.id, params.data.id)));
 
   if (!post) {
     res.status(404).json({ error: "Post not found" });
@@ -263,13 +285,13 @@ router.post("/posts/fetch-reddit", async (req, res): Promise<void> => {
   }
 });
 
-router.delete("/posts/all", async (req, res): Promise<void> => {
-  await db.delete(annotationsTable);
-  await db.delete(postsTable);
+router.delete("/posts/all", async (req: AuthRequest, res): Promise<void> => {
+  await db.delete(annotationsTable).where(annotationUserWhere(req));
+  await db.delete(postsTable).where(postUserWhere(req));
   res.json({ message: "All posts and annotations deleted." });
 });
 
-router.delete("/posts/:id", async (req, res): Promise<void> => {
+router.delete("/posts/:id", async (req: AuthRequest, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = DeletePostParams.safeParse({ id: raw });
   if (!params.success) {
@@ -277,7 +299,10 @@ router.delete("/posts/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const [deleted] = await db.delete(postsTable).where(eq(postsTable.id, params.data.id)).returning();
+  const [deleted] = await db
+    .delete(postsTable)
+    .where(and(postUserWhere(req), eq(postsTable.id, params.data.id)))
+    .returning();
   if (!deleted) {
     res.status(404).json({ error: "Post not found" });
     return;

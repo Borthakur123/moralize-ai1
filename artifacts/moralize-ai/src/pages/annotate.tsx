@@ -22,29 +22,35 @@ import { Loader2, ArrowRight, ExternalLink, AlertCircle, CheckCircle2, Users } f
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
+const ALL_FORM_DEFAULTS = {
+  anthropomorphismLevel: "none" as const,
+  mindPerception: "neither" as const,
+  moralEvaluation: "none" as const,
+  mdmtReliable: false,
+  mdmtCapable: false,
+  mdmtEthical: false,
+  mdmtSincere: false,
+  uncanny: "none" as const,
+  socialRole: "unclear" as const,
+  blameTarget: "none" as const,
+  moralFocus: "",
+  evidenceQuote: "",
+  coderConfidence: "2" as const,
+  needsHumanReview: false,
+  notes: "",
+};
+
 const formSchema = z.object({
-  anthropomorphismLevel: z.enum(["none", "mild", "strong"], {
-    required_error: "Please select an anthropomorphism level.",
-  }),
-  mindPerception: z.enum(["agency", "experience", "both", "neither"], {
-    required_error: "Please select mind perception.",
-  }),
-  moralEvaluation: z.enum(["praise", "blame", "concern", "ambivalent", "none"], {
-    required_error: "Please select a moral evaluation.",
-  }),
+  anthropomorphismLevel: z.enum(["none", "mild", "strong"]).default("none"),
+  mindPerception: z.enum(["agency", "experience", "both", "neither"]).default("neither"),
+  moralEvaluation: z.enum(["praise", "blame", "concern", "ambivalent", "none"]).default("none"),
   mdmtReliable: z.boolean().default(false),
   mdmtCapable: z.boolean().default(false),
   mdmtEthical: z.boolean().default(false),
   mdmtSincere: z.boolean().default(false),
-  uncanny: z.enum(["eerie", "creepy", "fake-human", "unsettling", "none"], {
-    required_error: "Please select an uncanny valley response.",
-  }),
-  socialRole: z.enum(["tool", "assistant", "companion", "authority", "manipulator", "moral_agent", "moral_patient", "mixed", "unclear"], {
-    required_error: "Please select a social role.",
-  }),
-  blameTarget: z.enum(["AI", "developer", "deployer", "user", "mixed", "none"], {
-    required_error: "Please select a blame target.",
-  }),
+  uncanny: z.enum(["eerie", "creepy", "fake-human", "unsettling", "none"]).default("none"),
+  socialRole: z.enum(["tool", "assistant", "companion", "authority", "manipulator", "moral_agent", "moral_patient", "mixed", "unclear"]).default("unclear"),
+  blameTarget: z.enum(["AI", "developer", "deployer", "user", "mixed", "none"]).default("none"),
   moralFocus: z.string().optional(),
   evidenceQuote: z.string().optional(),
   coderConfidence: z.enum(["1", "2", "3"]).default("2"),
@@ -52,10 +58,30 @@ const formSchema = z.object({
   notes: z.string().optional(),
 });
 
+const ALL_FIELDS = new Set([
+  "anthropomorphism", "mindPerception", "moralEvaluation", "mdmtTrust",
+  "uncanny", "socialRole", "blameTarget", "moralFocus", "evidenceQuote",
+  "coderConfidence", "needsHumanReview", "notes", "authorSignals",
+]);
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+
 export default function Annotate() {
   const [coderIdStr, setCoderIdStr] = useState<string>("");
+  const [activeFields, setActiveFields] = useState<Set<string>>(ALL_FIELDS);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    fetch(`${base}/api/settings`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data?.annotationFields) {
+          setActiveFields(new Set(data.annotationFields as string[]));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const { data: coders, isLoading: codersLoading } = useListCoders();
   
@@ -81,38 +107,12 @@ export default function Annotate() {
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      mdmtReliable: false,
-      mdmtCapable: false,
-      mdmtEthical: false,
-      mdmtSincere: false,
-      needsHumanReview: false,
-      coderConfidence: "2",
-      moralFocus: "",
-      evidenceQuote: "",
-      notes: "",
-    },
+    defaultValues: ALL_FORM_DEFAULTS,
   });
 
   useEffect(() => {
     if (post) {
-      form.reset({
-        anthropomorphismLevel: undefined as any,
-        mindPerception: undefined as any,
-        moralEvaluation: undefined as any,
-        mdmtReliable: false,
-        mdmtCapable: false,
-        mdmtEthical: false,
-        mdmtSincere: false,
-        uncanny: undefined as any,
-        socialRole: undefined as any,
-        blameTarget: undefined as any,
-        moralFocus: "",
-        evidenceQuote: "",
-        coderConfidence: "2",
-        needsHumanReview: false,
-        notes: "",
-      });
+      form.reset(ALL_FORM_DEFAULTS);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [post, form]);
@@ -252,7 +252,7 @@ export default function Annotate() {
 
                 <div className="space-y-8">
                   {/* Dimension 1: Anthropomorphism */}
-                  <FormField
+                  {activeFields.has("anthropomorphism") && <FormField
                     control={form.control}
                     name="anthropomorphismLevel"
                     render={({ field }) => (
@@ -289,10 +289,10 @@ export default function Annotate() {
                         <FormMessage />
                       </FormItem>
                     )}
-                  />
+                  />}
 
                   {/* Dimension 2: Mind Perception */}
-                  <FormField
+                  {activeFields.has("mindPerception") && <FormField
                     control={form.control}
                     name="mindPerception"
                     render={({ field }) => (
@@ -345,10 +345,10 @@ export default function Annotate() {
                         <FormMessage />
                       </FormItem>
                     )}
-                  />
+                  />}
 
                   {/* Dimension 3: Moral Evaluation */}
-                  <FormField
+                  {activeFields.has("moralEvaluation") && <FormField
                     control={form.control}
                     name="moralEvaluation"
                     render={({ field }) => (
@@ -379,10 +379,10 @@ export default function Annotate() {
                         <FormMessage />
                       </FormItem>
                     )}
-                  />
+                  />}
 
                   {/* Dimension 4: MDMT Trust Cues */}
-                  <div className="space-y-3">
+                  {activeFields.has("mdmtTrust") && <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <FormLabel className="text-base">4. MDMT Trust Cues</FormLabel>
                       <Tooltip>
@@ -444,10 +444,10 @@ export default function Annotate() {
                         </div>
                       </CardContent>
                     </Card>
-                  </div>
+                  </div>}
 
                   {/* Dimension 5: Uncanny Valley */}
-                  <FormField
+                  {activeFields.has("uncanny") && <FormField
                     control={form.control}
                     name="uncanny"
                     render={({ field }) => (
@@ -478,10 +478,10 @@ export default function Annotate() {
                         <FormMessage />
                       </FormItem>
                     )}
-                  />
+                  />}
 
                   {/* Dimension 6: Social Role */}
-                  <FormField
+                  {activeFields.has("socialRole") && <FormField
                     control={form.control}
                     name="socialRole"
                     render={({ field }) => (
@@ -512,10 +512,10 @@ export default function Annotate() {
                         <FormMessage />
                       </FormItem>
                     )}
-                  />
+                  />}
 
                   {/* Dimension 7: Blame Target */}
-                  <FormField
+                  {activeFields.has("blameTarget") && <FormField
                     control={form.control}
                     name="blameTarget"
                     render={({ field }) => (
@@ -543,10 +543,10 @@ export default function Annotate() {
                         <FormMessage />
                       </FormItem>
                     )}
-                  />
+                  />}
 
                   {/* Moral Focus */}
-                  <FormField
+                  {activeFields.has("moralFocus") && <FormField
                     control={form.control}
                     name="moralFocus"
                     render={({ field }) => (
@@ -569,10 +569,10 @@ export default function Annotate() {
                         <FormMessage />
                       </FormItem>
                     )}
-                  />
+                  />}
 
                   {/* Evidence Quote */}
-                  <FormField
+                  {activeFields.has("evidenceQuote") && <FormField
                     control={form.control}
                     name="evidenceQuote"
                     render={({ field }) => (
@@ -588,11 +588,12 @@ export default function Annotate() {
                         <FormMessage />
                       </FormItem>
                     )}
-                  />
+                  />}
 
                   {/* Coder Confidence + Needs Review */}
+                  {(activeFields.has("coderConfidence") || activeFields.has("needsHumanReview")) && (
                   <div className="grid grid-cols-2 gap-4">
-                    <FormField
+                    {activeFields.has("coderConfidence") && <FormField
                       control={form.control}
                       name="coderConfidence"
                       render={({ field }) => (
@@ -610,8 +611,8 @@ export default function Annotate() {
                           </FormControl>
                         </FormItem>
                       )}
-                    />
-                    <FormField
+                    />}
+                    {activeFields.has("needsHumanReview") && <FormField
                       control={form.control}
                       name="needsHumanReview"
                       render={({ field }) => (
@@ -623,11 +624,12 @@ export default function Annotate() {
                           </FormItem>
                         </FormItem>
                       )}
-                    />
+                    />}
                   </div>
+                  )}
 
                   {/* Notes */}
-                  <FormField
+                  {activeFields.has("notes") && <FormField
                     control={form.control}
                     name="notes"
                     render={({ field }) => (
@@ -643,7 +645,7 @@ export default function Annotate() {
                         <FormMessage />
                       </FormItem>
                     )}
-                  />
+                  />}
                 </div>
 
                 <div className="pt-4 pb-12 sticky bottom-0 bg-gradient-to-t from-slate-50 via-slate-50 to-transparent dark:from-background dark:via-background mt-8">

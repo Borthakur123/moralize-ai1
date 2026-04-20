@@ -1,14 +1,22 @@
 import { Router, type IRouter } from "express";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and, isNull, or } from "drizzle-orm";
 import { db, codersTable, annotationsTable } from "@workspace/db";
 import {
   CreateCoderBody,
   GetCoderParams,
 } from "@workspace/api-zod";
+import type { AuthRequest } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
-router.get("/coders", async (_req, res): Promise<void> => {
+function coderUserWhere(req: AuthRequest) {
+  if (req.isAdmin) {
+    return or(eq(codersTable.userId, req.userId!), isNull(codersTable.userId));
+  }
+  return eq(codersTable.userId, req.userId!);
+}
+
+router.get("/coders", async (req: AuthRequest, res): Promise<void> => {
   const countSq = db
     .select({ coderId: annotationsTable.coderId, cnt: sql<number>`count(*)`.as("cnt") })
     .from(annotationsTable)
@@ -26,23 +34,27 @@ router.get("/coders", async (_req, res): Promise<void> => {
     })
     .from(codersTable)
     .leftJoin(countSq, eq(codersTable.id, countSq.coderId))
+    .where(coderUserWhere(req))
     .orderBy(codersTable.createdAt);
 
   res.json(coders.map((c) => ({ ...c, annotationCount: Number(c.annotationCount) })));
 });
 
-router.post("/coders", async (req, res): Promise<void> => {
+router.post("/coders", async (req: AuthRequest, res): Promise<void> => {
   const parsed = CreateCoderBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
 
-  const [coder] = await db.insert(codersTable).values(parsed.data).returning();
+  const [coder] = await db
+    .insert(codersTable)
+    .values({ ...parsed.data, userId: req.userId })
+    .returning();
   res.status(201).json({ ...coder, annotationCount: 0 });
 });
 
-router.get("/coders/:id", async (req, res): Promise<void> => {
+router.get("/coders/:id", async (req: AuthRequest, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = GetCoderParams.safeParse({ id: raw });
   if (!params.success) {
@@ -68,7 +80,7 @@ router.get("/coders/:id", async (req, res): Promise<void> => {
     })
     .from(codersTable)
     .leftJoin(countSq, eq(codersTable.id, countSq.coderId))
-    .where(eq(codersTable.id, params.data.id));
+    .where(and(coderUserWhere(req), eq(codersTable.id, params.data.id)));
 
   if (!coder) {
     res.status(404).json({ error: "Coder not found" });

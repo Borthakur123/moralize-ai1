@@ -1,56 +1,70 @@
 import { Router, type IRouter } from "express";
-import { eq, sql, count } from "drizzle-orm";
+import { eq, sql, and, isNull, or } from "drizzle-orm";
 import { db, postsTable, annotationsTable, codersTable } from "@workspace/db";
+import type { AuthRequest } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
-router.get("/stats/summary", async (_req, res): Promise<void> => {
+function postUserWhere(req: AuthRequest) {
+  if (req.isAdmin) return or(eq(postsTable.userId, req.userId!), isNull(postsTable.userId));
+  return eq(postsTable.userId, req.userId!);
+}
+
+function annUserWhere(req: AuthRequest) {
+  if (req.isAdmin) return or(eq(annotationsTable.userId, req.userId!), isNull(annotationsTable.userId));
+  return eq(annotationsTable.userId, req.userId!);
+}
+
+function coderUserWhere(req: AuthRequest) {
+  if (req.isAdmin) return or(eq(codersTable.userId, req.userId!), isNull(codersTable.userId));
+  return eq(codersTable.userId, req.userId!);
+}
+
+router.get("/stats/summary", async (req: AuthRequest, res): Promise<void> => {
   const [postStats] = await db
     .select({ total: sql<number>`count(*)` })
-    .from(postsTable);
+    .from(postsTable)
+    .where(postUserWhere(req));
 
   const [annotationStats] = await db
     .select({ total: sql<number>`count(*)` })
-    .from(annotationsTable);
+    .from(annotationsTable)
+    .where(annUserWhere(req));
 
   const [coderStats] = await db
     .select({ total: sql<number>`count(*)` })
-    .from(codersTable);
+    .from(codersTable)
+    .where(coderUserWhere(req));
 
   const annotatedPostIds = db
     .selectDistinct({ id: annotationsTable.postId })
-    .from(annotationsTable);
+    .from(annotationsTable)
+    .where(annUserWhere(req));
 
   const [annotatedCount] = await db
     .select({ total: sql<number>`count(*)` })
     .from(postsTable)
-    .where(sql`${postsTable.id} IN (${annotatedPostIds})`);
+    .where(and(postUserWhere(req), sql`${postsTable.id} IN (${annotatedPostIds})`));
 
   const totalPosts = Number(postStats.total);
   const annotatedPosts = Number(annotatedCount.total);
 
   const anthropRows = await db
-    .select({
-      level: annotationsTable.anthropomorphismLevel,
-      cnt: sql<number>`count(*)`,
-    })
+    .select({ level: annotationsTable.anthropomorphismLevel, cnt: sql<number>`count(*)` })
     .from(annotationsTable)
+    .where(annUserWhere(req))
     .groupBy(annotationsTable.anthropomorphismLevel);
 
   const moralRows = await db
-    .select({
-      level: annotationsTable.moralEvaluation,
-      cnt: sql<number>`count(*)`,
-    })
+    .select({ level: annotationsTable.moralEvaluation, cnt: sql<number>`count(*)` })
     .from(annotationsTable)
+    .where(annUserWhere(req))
     .groupBy(annotationsTable.moralEvaluation);
 
   const mindRows = await db
-    .select({
-      level: annotationsTable.mindPerception,
-      cnt: sql<number>`count(*)`,
-    })
+    .select({ level: annotationsTable.mindPerception, cnt: sql<number>`count(*)` })
     .from(annotationsTable)
+    .where(annUserWhere(req))
     .groupBy(annotationsTable.mindPerception);
 
   const anthropBreakdown = { none: 0, mild: 0, strong: 0 };
@@ -86,7 +100,7 @@ router.get("/stats/summary", async (_req, res): Promise<void> => {
   });
 });
 
-router.get("/stats/by-subreddit", async (_req, res): Promise<void> => {
+router.get("/stats/by-subreddit", async (req: AuthRequest, res): Promise<void> => {
   const rows = await db
     .select({
       subreddit: postsTable.subreddit,
@@ -94,7 +108,11 @@ router.get("/stats/by-subreddit", async (_req, res): Promise<void> => {
       annotationCount: sql<number>`count(${annotationsTable.id})`,
     })
     .from(postsTable)
-    .leftJoin(annotationsTable, eq(postsTable.id, annotationsTable.postId))
+    .leftJoin(
+      annotationsTable,
+      and(eq(postsTable.id, annotationsTable.postId), annUserWhere(req))
+    )
+    .where(postUserWhere(req))
     .groupBy(postsTable.subreddit)
     .orderBy(sql`count(distinct ${postsTable.id}) desc`);
 
@@ -108,10 +126,11 @@ router.get("/stats/by-subreddit", async (_req, res): Promise<void> => {
   );
 });
 
-router.get("/stats/agreement", async (_req, res): Promise<void> => {
+router.get("/stats/agreement", async (req: AuthRequest, res): Promise<void> => {
   const multipleRows = await db
     .select({ postId: annotationsTable.postId, cnt: sql<number>`count(*)` })
     .from(annotationsTable)
+    .where(annUserWhere(req))
     .groupBy(annotationsTable.postId)
     .having(sql`count(*) > 1`);
 
@@ -144,7 +163,7 @@ router.get("/stats/agreement", async (_req, res): Promise<void> => {
         uncanny: annotationsTable.uncanny,
       })
       .from(annotationsTable)
-      .where(eq(annotationsTable.postId, postId));
+      .where(and(annUserWhere(req), eq(annotationsTable.postId, postId)));
 
     const allSame = (field: keyof typeof anns[0]) =>
       anns.every((a) => a[field] === anns[0][field]);

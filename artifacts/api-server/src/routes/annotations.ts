@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { eq, and, isNull, or } from "drizzle-orm";
 import { db, annotationsTable, postsTable, codersTable } from "@workspace/db";
 import {
   ListAnnotationsQueryParams,
@@ -10,10 +10,17 @@ import {
   DeleteAnnotationParams,
   GetPostAnnotationsParams,
 } from "@workspace/api-zod";
+import type { AuthRequest } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
-const annotationWithCoderName = (coderId?: number, postId?: number) => {
+function annUserWhere(req: AuthRequest) {
+  if (req.isAdmin) return or(eq(annotationsTable.userId, req.userId!), isNull(annotationsTable.userId));
+  return eq(annotationsTable.userId, req.userId!);
+}
+
+const annotationWithCoderName = (req: AuthRequest, coderId?: number, postId?: number) => {
+  const baseWhere = annUserWhere(req);
   let query = db
     .select({
       id: annotationsTable.id,
@@ -46,30 +53,31 @@ const annotationWithCoderName = (coderId?: number, postId?: number) => {
     })
     .from(annotationsTable)
     .leftJoin(codersTable, eq(annotationsTable.coderId, codersTable.id))
+    .where(baseWhere)
     .$dynamic();
 
   if (coderId != null) {
-    query = query.where(eq(annotationsTable.coderId, coderId));
+    query = query.where(and(baseWhere, eq(annotationsTable.coderId, coderId)));
   }
   if (postId != null) {
-    query = query.where(eq(annotationsTable.postId, postId));
+    query = query.where(and(baseWhere, eq(annotationsTable.postId, postId)));
   }
 
   return query;
 };
 
-router.get("/posts/:id/annotations", async (req, res): Promise<void> => {
+router.get("/posts/:id/annotations", async (req: AuthRequest, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = GetPostAnnotationsParams.safeParse({ id: raw });
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const annotations = await annotationWithCoderName(undefined, params.data.id);
+  const annotations = await annotationWithCoderName(req, undefined, params.data.id);
   res.json(annotations);
 });
 
-router.get("/annotations/export", async (req, res): Promise<void> => {
+router.get("/annotations/export", async (req: AuthRequest, res): Promise<void> => {
   const rows = await db
     .select({
       annotation_id: annotationsTable.id,
@@ -109,6 +117,7 @@ router.get("/annotations/export", async (req, res): Promise<void> => {
     .from(annotationsTable)
     .leftJoin(postsTable, eq(annotationsTable.postId, postsTable.id))
     .leftJoin(codersTable, eq(annotationsTable.coderId, codersTable.id))
+    .where(annUserWhere(req))
     .orderBy(annotationsTable.id);
 
   const headers = [
@@ -146,7 +155,7 @@ router.get("/annotations/export", async (req, res): Promise<void> => {
   res.send(lines.join("\n"));
 });
 
-router.get("/annotations", async (req, res): Promise<void> => {
+router.get("/annotations", async (req: AuthRequest, res): Promise<void> => {
   const parsed = ListAnnotationsQueryParams.safeParse(req.query);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -154,20 +163,24 @@ router.get("/annotations", async (req, res): Promise<void> => {
   }
   const { coderId, postId } = parsed.data;
   const annotations = await annotationWithCoderName(
+    req,
     coderId ?? undefined,
     postId ?? undefined
   );
   res.json(annotations);
 });
 
-router.post("/annotations", async (req, res): Promise<void> => {
+router.post("/annotations", async (req: AuthRequest, res): Promise<void> => {
   const parsed = CreateAnnotationBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
 
-  const [annotation] = await db.insert(annotationsTable).values(parsed.data).returning();
+  const [annotation] = await db
+    .insert(annotationsTable)
+    .values({ ...parsed.data, userId: req.userId })
+    .returning();
   const [coder] = await db
     .select({ name: codersTable.name })
     .from(codersTable)
@@ -176,7 +189,7 @@ router.post("/annotations", async (req, res): Promise<void> => {
   res.status(201).json({ ...annotation, coderName: coder?.name ?? null });
 });
 
-router.get("/annotations/:id", async (req, res): Promise<void> => {
+router.get("/annotations/:id", async (req: AuthRequest, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = GetAnnotationParams.safeParse({ id: raw });
   if (!params.success) {
@@ -210,7 +223,7 @@ router.get("/annotations/:id", async (req, res): Promise<void> => {
     })
     .from(annotationsTable)
     .leftJoin(codersTable, eq(annotationsTable.coderId, codersTable.id))
-    .where(eq(annotationsTable.id, params.data.id));
+    .where(and(annUserWhere(req), eq(annotationsTable.id, params.data.id)));
 
   if (!annotation) {
     res.status(404).json({ error: "Annotation not found" });
@@ -219,7 +232,7 @@ router.get("/annotations/:id", async (req, res): Promise<void> => {
   res.json(annotation);
 });
 
-router.patch("/annotations/:id", async (req, res): Promise<void> => {
+router.patch("/annotations/:id", async (req: AuthRequest, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = UpdateAnnotationParams.safeParse({ id: raw });
   if (!params.success) {
@@ -259,7 +272,7 @@ router.patch("/annotations/:id", async (req, res): Promise<void> => {
   const [updated] = await db
     .update(annotationsTable)
     .set(updateData)
-    .where(eq(annotationsTable.id, params.data.id))
+    .where(and(annUserWhere(req), eq(annotationsTable.id, params.data.id)))
     .returning();
 
   if (!updated) {
@@ -275,7 +288,7 @@ router.patch("/annotations/:id", async (req, res): Promise<void> => {
   res.json({ ...updated, coderName: coder?.name ?? null });
 });
 
-router.delete("/annotations/:id", async (req, res): Promise<void> => {
+router.delete("/annotations/:id", async (req: AuthRequest, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = DeleteAnnotationParams.safeParse({ id: raw });
   if (!params.success) {
@@ -285,7 +298,7 @@ router.delete("/annotations/:id", async (req, res): Promise<void> => {
 
   const [deleted] = await db
     .delete(annotationsTable)
-    .where(eq(annotationsTable.id, params.data.id))
+    .where(and(annUserWhere(req), eq(annotationsTable.id, params.data.id)))
     .returning();
 
   if (!deleted) {
