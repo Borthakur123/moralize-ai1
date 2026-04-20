@@ -33,3 +33,8 @@ externalPort = 8081
 [[ports]]
 localPort = 21494
 externalPort = 3000
+
+[userenv]
+
+[userenv.shared]
+ADMIN_EMAILS = "debanjanborthakur@gmail.com"
