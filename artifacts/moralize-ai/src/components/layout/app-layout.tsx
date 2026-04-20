@@ -1,4 +1,5 @@
 import { Link, useLocation } from "wouter";
+import { useUser, useClerk } from "@clerk/react";
 import { 
   LayoutDashboard, 
   PenTool, 
@@ -6,11 +7,21 @@ import {
   ListChecks, 
   Users, 
   BarChart,
-  Menu
+  Menu,
+  LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useState } from "react";
 
 const navigation = [
@@ -21,6 +32,52 @@ const navigation = [
   { name: "Coders", href: "/coders", icon: Users },
   { name: "Agreement", href: "/agreement", icon: BarChart },
 ];
+
+function UserMenu() {
+  const { user } = useUser();
+  const { signOut } = useClerk();
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  const initials = user
+    ? (user.firstName?.[0] ?? "") + (user.lastName?.[0] ?? user.emailAddresses?.[0]?.emailAddress?.[0] ?? "?")
+    : "?";
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" className="h-9 w-full justify-start gap-2 px-2">
+          <Avatar className="h-6 w-6">
+            <AvatarImage src={user?.imageUrl} />
+            <AvatarFallback className="text-xs bg-primary text-primary-foreground">
+              {initials.toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <span className="text-sm font-medium truncate max-w-[130px]">
+            {user?.firstName ?? user?.emailAddresses?.[0]?.emailAddress ?? "User"}
+          </span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-56">
+        <DropdownMenuLabel className="font-normal">
+          <div className="flex flex-col space-y-1">
+            <p className="text-sm font-medium">{user?.fullName ?? "User"}</p>
+            <p className="text-xs text-muted-foreground truncate">
+              {user?.emailAddresses?.[0]?.emailAddress}
+            </p>
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          className="text-destructive focus:text-destructive cursor-pointer"
+          onClick={() => signOut({ redirectUrl: `${basePath}/sign-in` })}
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Sign out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -66,6 +123,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <ScrollArea className="flex-1">
           <NavLinks />
         </ScrollArea>
+        <div className="border-t p-3">
+          <UserMenu />
+        </div>
       </aside>
 
       {/* Mobile Header & Sidebar */}
@@ -87,9 +147,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   MoralizeAI
                 </span>
               </div>
-              <ScrollArea className="h-[calc(100vh-3.5rem)]">
+              <ScrollArea className="h-[calc(100vh-7rem)]">
                 <NavLinks />
               </ScrollArea>
+              <div className="border-t p-3">
+                <UserMenu />
+              </div>
             </SheetContent>
           </Sheet>
           <span className="font-semibold">MoralizeAI</span>

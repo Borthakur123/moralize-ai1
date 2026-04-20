@@ -9,8 +9,10 @@ import {
   DeletePostParams,
   GetNextPostToAnnotateQueryParams,
 } from "@workspace/api-zod";
+import type { AuthRequest } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
+const FREE_POST_LIMIT = 500;
 
 router.get("/posts", async (req, res): Promise<void> => {
   const parsed = ListPostsQueryParams.safeParse(req.query);
@@ -77,17 +79,39 @@ router.post("/posts", async (req, res): Promise<void> => {
   res.status(201).json({ ...post, annotationCount: 0 });
 });
 
-router.post("/posts/bulk", async (req, res): Promise<void> => {
+router.post("/posts/bulk", async (req: AuthRequest, res): Promise<void> => {
   const parsed = BulkCreatePostsBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
 
+  if (!req.isAdmin) {
+    const [countRow] = await db.select({ count: sql<number>`count(*)` }).from(postsTable);
+    const currentCount = Number(countRow?.count ?? 0);
+    if (currentCount >= FREE_POST_LIMIT) {
+      res.status(403).json({
+        error: `Post limit reached. Free accounts are capped at ${FREE_POST_LIMIT} posts. Please contact the administrator to increase your limit.`,
+        limitReached: true,
+        current: currentCount,
+        limit: FREE_POST_LIMIT,
+      });
+      return;
+    }
+  }
+
   let imported = 0;
   let skipped = 0;
 
   for (const postData of parsed.data.posts) {
+    if (!req.isAdmin) {
+      const [countRow] = await db.select({ count: sql<number>`count(*)` }).from(postsTable);
+      if (Number(countRow?.count ?? 0) >= FREE_POST_LIMIT) {
+        skipped += parsed.data.posts.length - imported - skipped;
+        break;
+      }
+    }
+
     if (postData.externalId) {
       const existing = await db
         .select({ id: postsTable.id })
