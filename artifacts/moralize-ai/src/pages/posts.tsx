@@ -284,7 +284,13 @@ export default function Posts() {
         toast({ variant: "destructive", title: "Fetch failed", description: err.error ?? `Server error ${resp.status}` });
         return;
       }
-      const { posts: allRaw } = await resp.json() as { posts: Record<string, unknown>[] };
+      const { posts: allRaw, fetchedAfter } = await resp.json() as { posts: Record<string, unknown>[]; fetchedAfter: string | null };
+
+      if (allRaw.length === 0) {
+        const sinceMsg = fetchedAfter ? ` since ${new Date(fetchedAfter).toLocaleDateString()}` : "";
+        toast({ title: "No new posts", description: `No new posts found in r/${sub}${sinceMsg}. The subreddit has no new activity since your last import.` });
+        return;
+      }
 
       const postsArray = allRaw.map(normalizeRedditPost);
       const emptyCount = postsArray.filter(p => p._empty).length;
@@ -297,13 +303,14 @@ export default function Posts() {
 
       bulkCreate.mutate({ data: { posts: validPosts } }, {
         onSuccess: (res) => {
+          const sinceMsg = fetchedAfter ? ` after ${new Date(fetchedAfter).toLocaleDateString()}` : "";
           const skippedMsg = [
             res.skipped > 0 ? `${res.skipped} duplicate${res.skipped > 1 ? "s" : ""} skipped` : null,
             emptyCount > 0 ? `${emptyCount} link/image posts skipped` : null,
           ].filter(Boolean).join(", ");
           toast({
             title: "Import complete",
-            description: `Imported ${res.imported} posts from r/${sub}.${skippedMsg ? ` (${skippedMsg})` : ""}`,
+            description: `Imported ${res.imported} new posts from r/${sub}${sinceMsg}.${skippedMsg ? ` (${skippedMsg})` : ""}`,
           });
           setIsRedditOpen(false);
           queryClient.invalidateQueries({ queryKey: getListPostsQueryKey() });

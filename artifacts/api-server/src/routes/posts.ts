@@ -246,12 +246,34 @@ router.get("/posts/:id", async (req: AuthRequest, res): Promise<void> => {
   res.json({ ...post, annotationCount: Number(post.annotationCount) });
 });
 
-router.post("/posts/fetch-reddit", async (req, res): Promise<void> => {
+router.post("/posts/fetch-reddit", async (req: AuthRequest, res): Promise<void> => {
   const { subreddit, limit = 100, searchQuery } = req.body as { subreddit: string; limit?: number; searchQuery?: string };
 
   if (!subreddit || typeof subreddit !== "string") {
     res.status(400).json({ error: "subreddit is required" });
     return;
+  }
+
+  // Automatically fetch only posts NEWER than what we already have for this subreddit
+  // so each fetch always returns genuinely new data
+  let autoAfter: number | null = null;
+  try {
+    const [newest] = await db
+      .select({ postedAt: postsTable.postedAt })
+      .from(postsTable)
+      .where(and(
+        postUserWhere(req),
+        eq(postsTable.subreddit, subreddit),
+        sql`${postsTable.postedAt} IS NOT NULL`,
+      ))
+      .orderBy(sql`${postsTable.postedAt} DESC`)
+      .limit(1);
+
+    if (newest?.postedAt) {
+      autoAfter = Math.floor(new Date(newest.postedAt).getTime() / 1000);
+    }
+  } catch {
+    // If lookup fails, proceed without after-filter
   }
 
   const maxPosts = Math.min(Number(limit) || 100, 500);
@@ -270,6 +292,7 @@ router.post("/posts/fetch-reddit", async (req, res): Promise<void> => {
         sort_type: "created_utc",
       });
       if (searchQuery) params.set("q", searchQuery);
+      if (autoAfter !== null) params.set("after", String(autoAfter));
       if (before !== null) params.set("before", String(before));
 
       const response = await fetch(`https://api.pullpush.io/reddit/search/submission/?${params}`, {
@@ -292,7 +315,10 @@ router.post("/posts/fetch-reddit", async (req, res): Promise<void> => {
       if (before === null) break;
     }
 
-    res.json({ posts: allPosts.slice(0, maxPosts) });
+    res.json({
+      posts: allPosts.slice(0, maxPosts),
+      fetchedAfter: autoAfter ? new Date(autoAfter * 1000).toISOString() : null,
+    });
   } catch (err) {
     res.status(502).json({ error: `Failed to fetch posts: ${String(err)}` });
   }
