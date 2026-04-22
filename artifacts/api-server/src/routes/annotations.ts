@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, isNull, or } from "drizzle-orm";
+import { eq, and, isNull, or, sql } from "drizzle-orm";
 import { db, annotationsTable, postsTable, codersTable } from "@workspace/db";
 import {
   ListAnnotationsQueryParams,
@@ -78,47 +78,65 @@ router.get("/posts/:id/annotations", async (req: AuthRequest, res): Promise<void
 });
 
 router.get("/annotations/export", async (req: AuthRequest, res): Promise<void> => {
-  const rows = await db
-    .select({
-      annotation_id: annotationsTable.id,
-      post_id: annotationsTable.postId,
-      post_subreddit: postsTable.subreddit,
-      post_platform: postsTable.platform,
-      post_author: postsTable.author,
-      post_title: postsTable.title,
-      post_content: postsTable.content,
-      post_url: postsTable.url,
-      post_posted_at: postsTable.postedAt,
-      coder_id: annotationsTable.coderId,
-      coder_name: codersTable.name,
-      anthropomorphism_level: annotationsTable.anthropomorphismLevel,
-      mind_perception: annotationsTable.mindPerception,
-      moral_evaluation: annotationsTable.moralEvaluation,
-      mdmt_reliable: annotationsTable.mdmtReliable,
-      mdmt_capable: annotationsTable.mdmtCapable,
-      mdmt_ethical: annotationsTable.mdmtEthical,
-      mdmt_sincere: annotationsTable.mdmtSincere,
-      uncanny: annotationsTable.uncanny,
-      social_role: annotationsTable.socialRole,
-      blame_target: annotationsTable.blameTarget,
-      moral_focus: annotationsTable.moralFocus,
-      evidence_quote: annotationsTable.evidenceQuote,
-      coder_confidence: annotationsTable.coderConfidence,
-      needs_human_review: annotationsTable.needsHumanReview,
-      notes: annotationsTable.notes,
-      author_openness: annotationsTable.authorOpenness,
-      author_ideology: annotationsTable.authorIdeology,
-      author_expertise: annotationsTable.authorExpertise,
-      author_affect: annotationsTable.authorAffect,
-      author_agreeableness: annotationsTable.authorAgreeableness,
-      author_neuroticism: annotationsTable.authorNeuroticism,
-      annotated_at: annotationsTable.createdAt,
-    })
-    .from(annotationsTable)
-    .leftJoin(postsTable, eq(annotationsTable.postId, postsTable.id))
-    .leftJoin(codersTable, eq(annotationsTable.coderId, codersTable.id))
-    .where(annUserWhere(req))
-    .orderBy(annotationsTable.id);
+  // Deduplicated export:
+  // 1. For each post URL, use the lowest post_id as the canonical post (resolves duplicate imports)
+  // 2. For each (canonical URL, coder) pair, keep only the most recent annotation (resolves re-coding)
+  const userCondition = req.isAdmin
+    ? sql`(a.user_id = ${req.userId} OR a.user_id IS NULL)`
+    : sql`a.user_id = ${req.userId}`;
+
+  const rows = await db.execute(sql`
+    WITH canonical_posts AS (
+      SELECT url, MIN(id) AS canonical_id
+      FROM posts
+      WHERE url IS NOT NULL AND url <> ''
+      GROUP BY url
+    ),
+    deduped AS (
+      SELECT DISTINCT ON (cp.url, a.coder_id)
+        a.id                        AS annotation_id,
+        cp.canonical_id             AS post_id,
+        p.subreddit                 AS post_subreddit,
+        p.platform                  AS post_platform,
+        p.author                    AS post_author,
+        p.title                     AS post_title,
+        p.content                   AS post_content,
+        p.url                       AS post_url,
+        p.posted_at                 AS post_posted_at,
+        a.coder_id,
+        c.name                      AS coder_name,
+        a.anthropomorphism_level,
+        a.mind_perception,
+        a.moral_evaluation,
+        a.mdmt_reliable,
+        a.mdmt_capable,
+        a.mdmt_ethical,
+        a.mdmt_sincere,
+        a.uncanny,
+        a.social_role,
+        a.blame_target,
+        a.moral_focus,
+        a.evidence_quote,
+        a.coder_confidence,
+        a.needs_human_review,
+        a.notes,
+        a.author_openness,
+        a.author_ideology,
+        a.author_expertise,
+        a.author_affect,
+        a.author_agreeableness,
+        a.author_neuroticism,
+        a.created_at                AS annotated_at
+      FROM annotations a
+      JOIN posts p ON a.post_id = p.id
+      JOIN canonical_posts cp ON p.url = cp.url
+      JOIN posts p2 ON p2.id = cp.canonical_id
+      LEFT JOIN coders c ON a.coder_id = c.id
+      WHERE ${userCondition}
+      ORDER BY cp.url, a.coder_id, a.id DESC
+    )
+    SELECT * FROM deduped ORDER BY annotation_id
+  `);
 
   const headers = [
     "annotation_id", "post_id", "post_subreddit", "post_platform", "post_author",
@@ -143,10 +161,12 @@ router.get("/annotations/export", async (req: AuthRequest, res): Promise<void> =
     return s;
   };
 
+  const dataRows = (rows as unknown as { rows: Record<string, unknown>[] }).rows;
+
   const lines = [
     headers.join(","),
-    ...rows.map((row) =>
-      headers.map((h) => escape((row as Record<string, unknown>)[h])).join(",")
+    ...dataRows.map((row) =>
+      headers.map((h) => escape(row[h])).join(",")
     ),
   ];
 
