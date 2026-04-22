@@ -79,21 +79,35 @@ router.get("/posts/:id/annotations", async (req: AuthRequest, res): Promise<void
 
 router.get("/annotations/export", async (req: AuthRequest, res): Promise<void> => {
   // Deduplication strategy:
-  // - Keep ALL annotation rows (every annotation by every coder counts)
-  // - For posts that share the same URL (same Reddit post imported multiple times),
-  //   normalise post metadata to the canonical (lowest) post_id so the CSV is consistent
-  // - Posts with no URL are included as-is
+  // - For each (post_url, coder) pair → keep only the most recent annotation
+  //   This removes annotations where the same Reddit post was imported multiple times
+  //   and GPT/a coder annotated each duplicate copy
+  // - Different coders on the same URL are KEPT as separate rows (intended for IRR)
+  // - Posts with no URL are included as-is (treated as unique by annotation_id)
+  // - A `merged_duplicates` column shows how many copies were collapsed into each row
   const userCondition = req.isAdmin
     ? sql`(a.user_id = ${req.userId} OR a.user_id IS NULL)`
     : sql`a.user_id = ${req.userId}`;
 
   const rows = await db.execute(sql`
     WITH canonical_posts AS (
-      -- For each URL, the first-imported post is the canonical one
       SELECT url, MIN(id) AS canonical_id
       FROM posts
       WHERE url IS NOT NULL AND url <> ''
       GROUP BY url
+    ),
+    -- Count how many annotations exist per (url, coder) to populate merged_duplicates
+    dup_counts AS (
+      SELECT
+        COALESCE(cp.url, a.post_id::text)   AS dedup_key,
+        a.coder_id,
+        COUNT(*)                            AS total_copies,
+        MAX(a.id)                           AS keep_annotation_id
+      FROM annotations a
+      JOIN posts p ON a.post_id = p.id
+      LEFT JOIN canonical_posts cp ON p.url = cp.url AND p.url <> ''
+      WHERE ${userCondition}
+      GROUP BY COALESCE(cp.url, a.post_id::text), a.coder_id
     )
     SELECT
       a.id                                                AS annotation_id,
@@ -128,13 +142,14 @@ router.get("/annotations/export", async (req: AuthRequest, res): Promise<void> =
       a.author_affect,
       a.author_agreeableness,
       a.author_neuroticism,
-      a.created_at                                       AS annotated_at
-    FROM annotations a
+      a.created_at                                       AS annotated_at,
+      dc.total_copies                                    AS merged_duplicates
+    FROM dup_counts dc
+    JOIN annotations a ON a.id = dc.keep_annotation_id
     JOIN posts p ON a.post_id = p.id
     LEFT JOIN canonical_posts cp ON p.url = cp.url AND p.url <> ''
     LEFT JOIN posts canon ON canon.id = cp.canonical_id
     LEFT JOIN coders c ON a.coder_id = c.id
-    WHERE ${userCondition}
     ORDER BY a.id
   `);
 
@@ -149,7 +164,7 @@ router.get("/annotations/export", async (req: AuthRequest, res): Promise<void> =
     "notes",
     "author_openness", "author_ideology", "author_expertise",
     "author_affect", "author_agreeableness", "author_neuroticism",
-    "annotated_at"
+    "annotated_at", "merged_duplicates"
   ];
 
   const escape = (v: unknown): string => {
