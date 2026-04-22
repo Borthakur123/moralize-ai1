@@ -73,6 +73,9 @@ export default function Posts() {
       ? `https://www.reddit.com${permalink}`
       : rawUrl ?? "";
     const createdUtc = p.created_utc as number | undefined;
+    // Reddit / PullPush post ID (e.g. "1spg0eu") — used to deduplicate on re-import
+    const redditId = (p.id ?? p.name?.toString().replace(/^t3_/, "")) as string | undefined;
+    const externalId = redditId ? `reddit:${redditId}` : undefined;
 
     const contentText = selftext.trim() || title.toString().trim();
 
@@ -83,6 +86,7 @@ export default function Posts() {
       title: title.toString(),
       content: contentText,
       url,
+      ...(externalId ? { externalId } : {}),
       ...(createdUtc ? { postedAt: new Date(createdUtc * 1000).toISOString() } : {}),
       _empty: !contentText,
     };

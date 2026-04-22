@@ -136,11 +136,22 @@ router.post("/posts/bulk", async (req: AuthRequest, res): Promise<void> => {
       }
     }
 
+    // Deduplicate by externalId first, then fall back to URL
     if (postData.externalId) {
       const existing = await db
         .select({ id: postsTable.id })
         .from(postsTable)
         .where(and(postUserWhere(req), eq(postsTable.externalId, postData.externalId)))
+        .limit(1);
+      if (existing.length > 0) {
+        skipped++;
+        continue;
+      }
+    } else if (postData.url) {
+      const existing = await db
+        .select({ id: postsTable.id })
+        .from(postsTable)
+        .where(and(postUserWhere(req), eq(postsTable.url, postData.url)))
         .limit(1);
       if (existing.length > 0) {
         skipped++;
