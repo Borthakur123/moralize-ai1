@@ -78,64 +78,64 @@ router.get("/posts/:id/annotations", async (req: AuthRequest, res): Promise<void
 });
 
 router.get("/annotations/export", async (req: AuthRequest, res): Promise<void> => {
-  // Deduplicated export:
-  // 1. For each post URL, use the lowest post_id as the canonical post (resolves duplicate imports)
-  // 2. For each (canonical URL, coder) pair, keep only the most recent annotation (resolves re-coding)
+  // Deduplication strategy:
+  // - Keep ALL annotation rows (every annotation by every coder counts)
+  // - For posts that share the same URL (same Reddit post imported multiple times),
+  //   normalise post metadata to the canonical (lowest) post_id so the CSV is consistent
+  // - Posts with no URL are included as-is
   const userCondition = req.isAdmin
     ? sql`(a.user_id = ${req.userId} OR a.user_id IS NULL)`
     : sql`a.user_id = ${req.userId}`;
 
   const rows = await db.execute(sql`
     WITH canonical_posts AS (
+      -- For each URL, the first-imported post is the canonical one
       SELECT url, MIN(id) AS canonical_id
       FROM posts
       WHERE url IS NOT NULL AND url <> ''
       GROUP BY url
-    ),
-    deduped AS (
-      SELECT DISTINCT ON (cp.url, a.coder_id)
-        a.id                        AS annotation_id,
-        cp.canonical_id             AS post_id,
-        p.subreddit                 AS post_subreddit,
-        p.platform                  AS post_platform,
-        p.author                    AS post_author,
-        p.title                     AS post_title,
-        p.content                   AS post_content,
-        p.url                       AS post_url,
-        p.posted_at                 AS post_posted_at,
-        a.coder_id,
-        c.name                      AS coder_name,
-        a.anthropomorphism_level,
-        a.mind_perception,
-        a.moral_evaluation,
-        a.mdmt_reliable,
-        a.mdmt_capable,
-        a.mdmt_ethical,
-        a.mdmt_sincere,
-        a.uncanny,
-        a.social_role,
-        a.blame_target,
-        a.moral_focus,
-        a.evidence_quote,
-        a.coder_confidence,
-        a.needs_human_review,
-        a.notes,
-        a.author_openness,
-        a.author_ideology,
-        a.author_expertise,
-        a.author_affect,
-        a.author_agreeableness,
-        a.author_neuroticism,
-        a.created_at                AS annotated_at
-      FROM annotations a
-      JOIN posts p ON a.post_id = p.id
-      JOIN canonical_posts cp ON p.url = cp.url
-      JOIN posts p2 ON p2.id = cp.canonical_id
-      LEFT JOIN coders c ON a.coder_id = c.id
-      WHERE ${userCondition}
-      ORDER BY cp.url, a.coder_id, a.id DESC
     )
-    SELECT * FROM deduped ORDER BY annotation_id
+    SELECT
+      a.id                                                AS annotation_id,
+      COALESCE(cp.canonical_id, p.id)                   AS post_id,
+      COALESCE(canon.subreddit, p.subreddit)             AS post_subreddit,
+      COALESCE(canon.platform,  p.platform)              AS post_platform,
+      COALESCE(canon.author,    p.author)                AS post_author,
+      COALESCE(canon.title,     p.title)                 AS post_title,
+      COALESCE(canon.content,   p.content)               AS post_content,
+      COALESCE(canon.url,       p.url)                   AS post_url,
+      COALESCE(canon.posted_at, p.posted_at)             AS post_posted_at,
+      a.coder_id,
+      c.name                                             AS coder_name,
+      a.anthropomorphism_level,
+      a.mind_perception,
+      a.moral_evaluation,
+      a.mdmt_reliable,
+      a.mdmt_capable,
+      a.mdmt_ethical,
+      a.mdmt_sincere,
+      a.uncanny,
+      a.social_role,
+      a.blame_target,
+      a.moral_focus,
+      a.evidence_quote,
+      a.coder_confidence,
+      a.needs_human_review,
+      a.notes,
+      a.author_openness,
+      a.author_ideology,
+      a.author_expertise,
+      a.author_affect,
+      a.author_agreeableness,
+      a.author_neuroticism,
+      a.created_at                                       AS annotated_at
+    FROM annotations a
+    JOIN posts p ON a.post_id = p.id
+    LEFT JOIN canonical_posts cp ON p.url = cp.url AND p.url <> ''
+    LEFT JOIN posts canon ON canon.id = cp.canonical_id
+    LEFT JOIN coders c ON a.coder_id = c.id
+    WHERE ${userCondition}
+    ORDER BY a.id
   `);
 
   const headers = [
