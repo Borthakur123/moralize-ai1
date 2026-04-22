@@ -247,39 +247,45 @@ router.get("/posts/:id", async (req: AuthRequest, res): Promise<void> => {
 });
 
 router.post("/posts/fetch-reddit", async (req: AuthRequest, res): Promise<void> => {
-  const { subreddit, limit = 100, searchQuery } = req.body as { subreddit: string; limit?: number; searchQuery?: string };
+  const { subreddit, limit = 100, searchQuery, direction = "newer" } = req.body as {
+    subreddit: string; limit?: number; searchQuery?: string; direction?: "newer" | "older";
+  };
 
   if (!subreddit || typeof subreddit !== "string") {
     res.status(400).json({ error: "subreddit is required" });
     return;
   }
 
-  // Automatically fetch only posts NEWER than what we already have for this subreddit
-  // so each fetch always returns genuinely new data
-  let autoAfter: number | null = null;
+  // Determine the anchor timestamp based on direction:
+  // "newer" → fetch posts AFTER the most recent post we already have
+  // "older" → fetch posts BEFORE the oldest post we already have
+  let anchorTimestamp: number | null = null;
   try {
-    const [newest] = await db
-      .select({ postedAt: postsTable.postedAt })
-      .from(postsTable)
-      .where(and(
-        postUserWhere(req),
-        eq(postsTable.subreddit, subreddit),
-        sql`${postsTable.postedAt} IS NOT NULL`,
-      ))
-      .orderBy(sql`${postsTable.postedAt} DESC`)
-      .limit(1);
-
-    if (newest?.postedAt) {
-      autoAfter = Math.floor(new Date(newest.postedAt).getTime() / 1000);
+    if (direction === "newer") {
+      const [newest] = await db
+        .select({ postedAt: postsTable.postedAt })
+        .from(postsTable)
+        .where(and(postUserWhere(req), eq(postsTable.subreddit, subreddit), sql`${postsTable.postedAt} IS NOT NULL`))
+        .orderBy(sql`${postsTable.postedAt} DESC`)
+        .limit(1);
+      if (newest?.postedAt) anchorTimestamp = Math.floor(new Date(newest.postedAt).getTime() / 1000);
+    } else {
+      const [oldest] = await db
+        .select({ postedAt: postsTable.postedAt })
+        .from(postsTable)
+        .where(and(postUserWhere(req), eq(postsTable.subreddit, subreddit), sql`${postsTable.postedAt} IS NOT NULL`))
+        .orderBy(sql`${postsTable.postedAt} ASC`)
+        .limit(1);
+      if (oldest?.postedAt) anchorTimestamp = Math.floor(new Date(oldest.postedAt).getTime() / 1000);
     }
   } catch {
-    // If lookup fails, proceed without after-filter
+    // If lookup fails, proceed without anchor
   }
 
   const maxPosts = Math.min(Number(limit) || 100, 500);
   const batchSize = 100;
   const allPosts: Record<string, unknown>[] = [];
-  let before: number | null = null;
+  let before: number | null = direction === "older" && anchorTimestamp !== null ? anchorTimestamp : null;
 
   try {
     while (allPosts.length < maxPosts) {
@@ -292,7 +298,8 @@ router.post("/posts/fetch-reddit", async (req: AuthRequest, res): Promise<void> 
         sort_type: "created_utc",
       });
       if (searchQuery) params.set("q", searchQuery);
-      if (autoAfter !== null) params.set("after", String(autoAfter));
+      // For "newer": filter to posts after anchor; for "older": paginate backwards via before
+      if (direction === "newer" && anchorTimestamp !== null) params.set("after", String(anchorTimestamp));
       if (before !== null) params.set("before", String(before));
 
       const response = await fetch(`https://api.pullpush.io/reddit/search/submission/?${params}`, {
@@ -317,7 +324,7 @@ router.post("/posts/fetch-reddit", async (req: AuthRequest, res): Promise<void> 
 
     res.json({
       posts: allPosts.slice(0, maxPosts),
-      fetchedAfter: autoAfter ? new Date(autoAfter * 1000).toISOString() : null,
+      fetchedAfter: anchorTimestamp ? new Date(anchorTimestamp * 1000).toISOString() : null,
     });
   } catch (err) {
     res.status(502).json({ error: `Failed to fetch posts: ${String(err)}` });

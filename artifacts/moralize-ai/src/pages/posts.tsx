@@ -37,6 +37,7 @@ export default function Posts() {
   const [redditSubreddit, setRedditSubreddit] = useState("ChatGPT");
   const [redditLimit, setRedditLimit] = useState("100");
   const [redditQuery, setRedditQuery] = useState("");
+  const [redditDirection, setRedditDirection] = useState<"newer" | "older">("newer");
   const [isFetchingReddit, setIsFetchingReddit] = useState(false);
 
   const [isAiOpen, setIsAiOpen] = useState(false);
@@ -277,7 +278,7 @@ export default function Posts() {
       const resp = await fetch("/api/posts/fetch-reddit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subreddit: sub, limit: maxPosts, searchQuery: redditQuery.trim() || undefined }),
+        body: JSON.stringify({ subreddit: sub, limit: maxPosts, searchQuery: redditQuery.trim() || undefined, direction: redditDirection }),
       });
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({})) as { error?: string };
@@ -287,8 +288,11 @@ export default function Posts() {
       const { posts: allRaw, fetchedAfter } = await resp.json() as { posts: Record<string, unknown>[]; fetchedAfter: string | null };
 
       if (allRaw.length === 0) {
-        const sinceMsg = fetchedAfter ? ` since ${new Date(fetchedAfter).toLocaleDateString()}` : "";
-        toast({ title: "No new posts", description: `No new posts found in r/${sub}${sinceMsg}. The subreddit has no new activity since your last import.` });
+        const sinceMsg = fetchedAfter ? ` ${redditDirection === "newer" ? "since" : "before"} ${new Date(fetchedAfter).toLocaleDateString()}` : "";
+        const dirMsg = redditDirection === "newer"
+          ? "No new posts since your last import."
+          : "No older posts found before your earliest import.";
+        toast({ title: "No posts found", description: `r/${sub}${sinceMsg} — ${dirMsg}` });
         return;
       }
 
@@ -505,13 +509,36 @@ export default function Posts() {
                   </div>
                 </div>
                 <div className="grid gap-2">
+                  <label className="text-sm font-medium">Fetch direction</label>
+                  <div className="flex rounded-md border overflow-hidden text-sm">
+                    <button
+                      type="button"
+                      onClick={() => setRedditDirection("newer")}
+                      className={`flex-1 px-3 py-2 transition-colors ${redditDirection === "newer" ? "bg-orange-500 text-white font-medium" : "bg-white text-muted-foreground hover:bg-muted"}`}
+                    >
+                      ↑ Newer posts
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRedditDirection("older")}
+                      className={`flex-1 px-3 py-2 transition-colors border-l ${redditDirection === "older" ? "bg-orange-500 text-white font-medium" : "bg-white text-muted-foreground hover:bg-muted"}`}
+                    >
+                      ↓ Older posts
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {redditDirection === "newer"
+                      ? "Fetches posts created after your most recent import. Use this to keep up with new Reddit activity."
+                      : "Fetches posts created before your oldest import. Use this to expand the corpus with historical data."}
+                  </p>
+                </div>
+                <div className="grid gap-2">
                   <label className="text-sm font-medium">Keyword search <span className="font-normal text-muted-foreground">(optional)</span></label>
                   <Input
                     placeholder='e.g. "feels like talking to a person"'
                     value={redditQuery}
                     onChange={e => setRedditQuery(e.target.value)}
                   />
-                  <p className="text-xs text-muted-foreground">Leave blank to get the newest posts. Add a keyword to search within the subreddit.</p>
                 </div>
                 <div className="grid gap-2">
                   <label className="text-sm font-medium">Max posts to fetch</label>
