@@ -13,6 +13,8 @@ import Annotations from "@/pages/annotations";
 import Coders from "@/pages/coders";
 import Agreement from "@/pages/agreement";
 import SettingsPage from "@/pages/settings";
+import BillingPage from "@/pages/billing";
+import BillingSuccessPage from "@/pages/billing-success";
 import NotFound from "@/pages/not-found";
 import SignInPage from "@/pages/sign-in";
 import SignUpPage from "@/pages/sign-up";
@@ -71,6 +73,8 @@ function Router() {
       <Route path="/coders" component={() => <ProtectedRoute component={Coders} />} />
       <Route path="/agreement" component={() => <ProtectedRoute component={Agreement} />} />
       <Route path="/settings" component={() => <ProtectedRoute component={SettingsPage} />} />
+      <Route path="/billing/success" component={() => <ProtectedRoute component={BillingSuccessPage} />} />
+      <Route path="/billing" component={() => <ProtectedRoute component={BillingPage} />} />
       <Route path="/sign-in/*?" component={SignInPage} />
       <Route path="/sign-up/*?" component={SignUpPage} />
       <Route component={NotFound} />

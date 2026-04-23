@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -8,6 +8,8 @@ export const codersTable = pgTable("coders", {
   name: text("name").notNull(),
   email: text("email"),
   role: text("role").notNull().default("coder"),
+  stripeCustomerId: text("stripe_customer_id"),
+  postCredits: integer("post_credits").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

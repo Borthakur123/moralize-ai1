@@ -10,6 +10,7 @@ import {
   Settings,
   Menu,
   LogOut,
+  CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -33,6 +34,7 @@ const navigation = [
   { name: "Coders", href: "/coders", icon: Users },
   { name: "Agreement", href: "/agreement", icon: BarChart },
   { name: "Settings", href: "/settings", icon: Settings },
+  { name: "Billing", href: "/billing", icon: CreditCard },
 ];
 
 function UserMenu() {

@@ -51,14 +51,30 @@ A research data collection and annotation platform for the "Moralizing Machines 
 
 ### Database Tables
 - `posts` — social media posts with `userId` column for per-user isolation
-- `coders` — annotator profiles with `userId` column
+- `coders` — annotator profiles with `userId` column; includes `stripe_customer_id` and `post_credits` (purchased credits)
 - `annotations` — full annotation records with `userId` column; all 13 coding dimensions
 - `user_settings` — per-user settings: `annotationFields` (JSON array) + `customPrompt` (text)
+- `purchases` — one record per completed Stripe checkout session; prevents double-crediting
+- `stripe.*` — auto-managed by stripe-replit-sync (products, prices, customers, subscriptions, etc.)
 
 ### Data Isolation Pattern
 - Admin users: `WHERE userId = req.userId OR userId IS NULL` (see legacy NULL-owned rows)
 - Regular users: `WHERE userId = req.userId` (strict isolation)
 - All inserts include `userId: req.userId`
+
+## Billing / Credit Packs (Stripe)
+
+Integration: Stripe via Replit's native connector (no hardcoded keys).
+
+- Free tier: 500 posts per user
+- Purchased credits: stored as `post_credits` integer on `coders` table; effective limit = 500 + post_credits
+- Three credit packs: Starter (500 posts / $5), Researcher (2,000 posts / $15), Pro (5,000 posts / $25)
+- Products created via `pnpm --filter @workspace/scripts run seed-products`
+- Checkout flow: `POST /api/stripe/checkout` → Stripe hosted checkout → redirect to `/billing/success?session_id=...` → `POST /api/stripe/verify-purchase` credits the account
+- Double-credit protection: purchases table with UNIQUE constraint on stripe_session_id
+- Webhook: `/api/stripe/webhook` (registered before express.json; handled by stripe-replit-sync)
+- `stripe-replit-sync` and `stripe` are externalized from esbuild bundle (needs file-path resolution for migrations)
+- To publish with live payments: enter live Stripe keys (pk_live_..., sk_live_...) in the Publish pane
 
 ## Key Commands
 

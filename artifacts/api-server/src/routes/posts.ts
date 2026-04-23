@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, sql, and, isNull, or } from "drizzle-orm";
-import { db, postsTable, annotationsTable, codersTable } from "@workspace/db";
+import { db, postsTable, annotationsTable, codersTable, purchasesTable } from "@workspace/db";
 import {
   ListPostsQueryParams,
   CreatePostBody,
@@ -13,6 +13,16 @@ import type { AuthRequest } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 const FREE_POST_LIMIT = 500;
+
+async function getEffectiveLimit(req: AuthRequest): Promise<number> {
+  if (req.isAdmin) return Infinity;
+  const [coder] = await db
+    .select({ postCredits: codersTable.postCredits })
+    .from(codersTable)
+    .where(eq(codersTable.userId, req.userId!))
+    .limit(1);
+  return FREE_POST_LIMIT + (coder?.postCredits ?? 0);
+}
 
 function postUserWhere(req: AuthRequest) {
   if (req.isAdmin) {
@@ -86,6 +96,17 @@ router.get("/posts", async (req: AuthRequest, res): Promise<void> => {
   res.json(posts.map((p) => ({ ...p, annotationCount: Number(p.annotationCount) })));
 });
 
+router.get("/posts/usage", async (req: AuthRequest, res): Promise<void> => {
+  const [countRow] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(postsTable)
+    .where(postUserWhere(req));
+  const current = Number(countRow?.count ?? 0);
+  const effectiveLimit = await getEffectiveLimit(req);
+  const limit = effectiveLimit === Infinity ? null : effectiveLimit;
+  res.json({ current, limit, free: FREE_POST_LIMIT });
+});
+
 router.post("/posts", async (req: AuthRequest, res): Promise<void> => {
   const parsed = CreatePostBody.safeParse(req.body);
   if (!parsed.success) {
@@ -104,18 +125,20 @@ router.post("/posts/bulk", async (req: AuthRequest, res): Promise<void> => {
     return;
   }
 
+  const effectiveLimit = await getEffectiveLimit(req);
+
   if (!req.isAdmin) {
     const [countRow] = await db
       .select({ count: sql<number>`count(*)` })
       .from(postsTable)
       .where(postUserWhere(req));
     const currentCount = Number(countRow?.count ?? 0);
-    if (currentCount >= FREE_POST_LIMIT) {
+    if (currentCount >= effectiveLimit) {
       res.status(403).json({
-        error: `Post limit reached. Free accounts are capped at ${FREE_POST_LIMIT} posts. Please contact the administrator to increase your limit.`,
+        error: `Post limit reached. You have used ${currentCount} of your ${effectiveLimit} post slots.`,
         limitReached: true,
         current: currentCount,
-        limit: FREE_POST_LIMIT,
+        limit: effectiveLimit,
       });
       return;
     }
@@ -130,7 +153,7 @@ router.post("/posts/bulk", async (req: AuthRequest, res): Promise<void> => {
         .select({ count: sql<number>`count(*)` })
         .from(postsTable)
         .where(postUserWhere(req));
-      if (Number(countRow?.count ?? 0) >= FREE_POST_LIMIT) {
+      if (Number(countRow?.count ?? 0) >= effectiveLimit) {
         skipped += parsed.data.posts.length - imported - skipped;
         break;
       }
