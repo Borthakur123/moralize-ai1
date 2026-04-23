@@ -261,11 +261,12 @@ router.post("/posts/fetch-reddit", async (req: AuthRequest, res): Promise<void> 
   // "older" → fetch posts BEFORE the oldest post we already have
   let anchorTimestamp: number | null = null;
   try {
+    const subredditLower = subreddit.toLowerCase();
     if (direction === "newer") {
       const [newest] = await db
         .select({ postedAt: postsTable.postedAt })
         .from(postsTable)
-        .where(and(postUserWhere(req), eq(postsTable.subreddit, subreddit), sql`${postsTable.postedAt} IS NOT NULL`))
+        .where(and(postUserWhere(req), sql`LOWER(${postsTable.subreddit}) = ${subredditLower}`, sql`${postsTable.postedAt} IS NOT NULL`))
         .orderBy(sql`${postsTable.postedAt} DESC`)
         .limit(1);
       if (newest?.postedAt) anchorTimestamp = Math.floor(new Date(newest.postedAt).getTime() / 1000);
@@ -273,7 +274,7 @@ router.post("/posts/fetch-reddit", async (req: AuthRequest, res): Promise<void> 
       const [oldest] = await db
         .select({ postedAt: postsTable.postedAt })
         .from(postsTable)
-        .where(and(postUserWhere(req), eq(postsTable.subreddit, subreddit), sql`${postsTable.postedAt} IS NOT NULL`))
+        .where(and(postUserWhere(req), sql`LOWER(${postsTable.subreddit}) = ${subredditLower}`, sql`${postsTable.postedAt} IS NOT NULL`))
         .orderBy(sql`${postsTable.postedAt} ASC`)
         .limit(1);
       if (oldest?.postedAt) anchorTimestamp = Math.floor(new Date(oldest.postedAt).getTime() / 1000);
